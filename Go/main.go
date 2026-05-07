@@ -36,8 +36,8 @@ func main() {
 		defer resp.Body.Close()
 
 		result, _ := io.ReadAll(resp.Body)
-
-		c.Date(200, "application/json", result)
+		//フロントへ返却
+		c.Data(200, "application/json", result)
 	})
 
 	r.Run(":8080")

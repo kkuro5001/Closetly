@@ -1,9 +1,9 @@
-^from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request
 import uvicorn
 
 app = FastAPI()
 
-@app.post("/process")
+@app.post("/predict")
 async def predict(request: Request):
     image_bytes = await request.body()
 

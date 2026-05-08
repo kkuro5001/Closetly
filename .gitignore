@@ -1,0 +1,34 @@
+# Flutter/Dart 関連
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.pub-cache/
+frontend/.packages
+
+# ビルド生成物
+frontend/build/
+
+# Android 関連
+frontend/android/**/generated/
+frontend/android/app/debug/
+frontend/android/app/profile/
+frontend/android/app/release/
+
+# iOS 関連
+frontend/ios/Flutter/.last_build_id
+frontend/ios/Pods/
+frontend/ios/DerivedData/
+frontend/ios/Runner/GeneratedPluginRegistrant.h
+frontend/ios/Runner/GeneratedPluginRegistrant.m
+
+# Web 関連
+frontend/build/web/
+
+# 各OSの実行ファイル・ライブラリ
+frontend/linux/flutter/ephemeral/
+frontend/macos/Flutter/ephemeral/
+frontend/windows/flutter/ephemeral/
+
+# IDE 関連 (共有しない場合)
+frontend/.idea/
+frontend/*.iml

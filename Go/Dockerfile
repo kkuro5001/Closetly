@@ -1,10 +1,14 @@
-FROM golang:1.22
+FROM golang:1.24
 
 WORKDIR /app
+
+COPY go.mod ./
+COPY go.sum ./
+
+RUN go mod download
+
 COPY . .
 
-RUN go mod init Go
-RUN go get github.com/gin-gonic/gin
 RUN go build -o main .
 
 CMD ["./main"]

@@ -11,3 +11,5 @@ main.goでMIME　画像チェック UUIDファイル名 画像保存時の衝突
 
 curl.exe -X POST http://localhost:8080/upload -F "image=@test.jpg"
 goからpythonのpredictのテスト
+
+flutter以外の方法と比べてみる

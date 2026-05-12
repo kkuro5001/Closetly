@@ -5,7 +5,7 @@ class UploadService {
   static Future<String> uploadImage(String imagePath) async {
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse('http://10.0.2.2:8000/upload'),
+      Uri.parse('http://10.0.2.2:8080/upload'),
     );
 
     request.files.add(

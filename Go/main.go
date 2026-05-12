@@ -26,6 +26,8 @@ func main() {
 		body := &bytes.Buffer{}
 		io.Copy(body, file)
 
+		fmt.Print("goからpythonへ画像送信")
+
 		resp, err := http.Post(
 			"http://python:8000/predict",
 			"application/octet-stream",
@@ -39,6 +41,8 @@ func main() {
 		defer resp.Body.Close()
 
 		result, _ := io.ReadAll(resp.Body)
+
+		fmt.Println("goからflutterへ返却")
 		//フロントへ返却
 		c.Data(200, "application/json", result)
 	})

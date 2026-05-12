@@ -1,8 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- カメラの権限 -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- 画像保存の権限 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+
+     <!--usesCleartextTraffic:http通信をする場合にhttp通信を許可するための設定 -->
     <application
         android:label="frontend"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

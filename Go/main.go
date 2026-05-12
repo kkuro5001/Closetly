@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,13 +14,15 @@ func main() {
 
 	//画像受け取り + Pythonへ転送
 	r.POST("/upload", func(c *gin.Context) {
-		file, _, err := c.Request.FormFile("image")
+		file, header, err := c.Request.FormFile("image")
 		if err != nil {
 			c.JSON(400, gin.H{"error": "file error"})
 			return
 		}
 		defer file.Close()
 
+		fmt.Println("受信:", header.Filename)
+		//Pythonへ送信
 		body := &bytes.Buffer{}
 		io.Copy(body, file)
 

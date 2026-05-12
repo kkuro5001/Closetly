@@ -3,6 +3,7 @@ import uvicorn
 
 app = FastAPI()
 
+# 画像を受け取って服のカテゴリや色を予測する
 @app.post("/predict")
 async def predict(request: Request):
     image_bytes = await request.body()

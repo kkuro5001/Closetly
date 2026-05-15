@@ -1,10 +1,13 @@
 from fastapi import FastAPI, Request
 import uvicorn
+from ultralytics import YOLO
+import cv2
+import numpy as np
 
 app = FastAPI()
 
 #yoloのモデル読み込み
-model = YOLO("yolov8m.pt")
+model = YOLO("yolov8n.pt")
 
 # 画像を受け取って服のカテゴリや色を予測する
 @app.post("/predict")
@@ -13,16 +16,22 @@ async def predict(request: Request):
 
     print("画像受信完了")
 
-    #YOLOでカテゴリを判別する
+    #---------YOLOでカテゴリを判別する
+
+    #bytes > numpy配列
     np_arr = np.frombuffer(image_bytes, np.uint8)
+    #numpy > 画像
     img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-    #yoloで予測
+    #----------------yoloで予測
+    #YOLO予測
     results = model(img)
+    #最初の予測
+    result = results[0]
 
     #予測結果からカテゴリと色を抽出する（ここでは仮の値を使用）
-    labels = results.names
-    boxes = results.boxes
+    labels = result.names
+    boxes = result.boxes
 
     if len(boxes) == 0:
         return {

@@ -29,13 +29,13 @@ class _CameraPageState extends State<CameraPage> {
     final pickedFile = await picker.pickImage(
       source: ImageSource.camera,
     );
-    print("撮影完了");
+    debugPrint("撮影完了");
     if (pickedFile == null) {
-        print("画像なし");
+        debugPrint("画像なし");
         return;
     }
 
-    print("画像パス: ${pickedFile.path}");
+    debugPrint("画像パス: ${pickedFile.path}");
 
     setState(() {
       image = File(pickedFile.path);
@@ -43,14 +43,14 @@ class _CameraPageState extends State<CameraPage> {
 
     try {
 
-      print("Goへ送信開始");
+      debugPrint("Goへ送信開始");
 
       final result = await UploadService.uploadImage(
         pickedFile.path,
       );
 
-      print("レスポンス:");
-      print(result);
+      debugPrint("レスポンス:");
+      debugPrint(result);
 
       //JSON解析
       final decoded = jsonDecode(result);
@@ -63,8 +63,8 @@ class _CameraPageState extends State<CameraPage> {
 
     } catch (e) {
 
-      print("エラー発生");
-      print(e);
+      debugPrint("エラー発生");
+      debugPrint(e.toString());
 
     }
 

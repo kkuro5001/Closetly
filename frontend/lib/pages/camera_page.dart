@@ -6,6 +6,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../services/upload_service.dart';
 
+import '../database/database_helper.dart';
+import '../models/clothing.dart';
+
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
 
@@ -23,6 +26,16 @@ class _CameraPageState extends State<CameraPage> {
   String? category;
   String? color;
   String? suggestion;
+
+  //保存する入力ようのコントローラー
+  final categoryController =
+    TextEditingController();
+
+  final colorController =
+      TextEditingController();
+
+  final memoController =
+      TextEditingController();
 
   Future<void> takePhoto() async {
 
@@ -70,6 +83,27 @@ class _CameraPageState extends State<CameraPage> {
 
   }
 
+  //撮影した服を保存する関数
+  Future<void> saveClothing() async {
+
+    if (image == null) {
+      return;
+    }
+
+    final clothing = Clothing(
+      imagePath: image!.path,
+      category: categoryController.text,
+      color: colorController.text,
+      memo: memoController.text,
+    );
+
+    await DatabaseHelper.instance.insertClothing(
+      clothing,
+    );
+
+    debugPrint("保存完了");
+  }
+
   @override
   Widget build(BuildContext context) {
 
@@ -97,13 +131,57 @@ class _CameraPageState extends State<CameraPage> {
               child: const Text("写真を撮る"),
             ),
 
-            // AI結果表示
+            // AI結果表示して、カテゴリなどを入力して保存する
             if (category != null) ...[
               const SizedBox(height: 20),
 
-              Text("カテゴリ: $category", style: const TextStyle(fontSize: 18)),
-              Text("色: $color", style: const TextStyle(fontSize: 18)),
-              Text("おすすめ: $suggestion", style: const TextStyle(fontSize: 18)),
+              Text(
+                "カテゴリ: $category",
+                style: const TextStyle(fontSize: 18),
+              ),
+
+              Text(
+                "色: $color",
+                style: const TextStyle(fontSize: 18),
+              ),
+
+              Text(
+                "おすすめ: $suggestion",
+                style: const TextStyle(fontSize: 18),
+              ),
+
+              const SizedBox(height: 20),
+
+              //カテゴリ入力
+              TextField(
+                controller: categoryController,
+                decoration: const InputDecoration(
+                  labelText: "カテゴリ",
+                ),
+              ),
+
+              //色入力
+              TextField(
+                controller: colorController,
+                decoration: const InputDecoration(
+                  labelText: "色",
+                ),
+              ),
+
+              //メモ入力
+              TextField(
+                controller: memoController,
+                decoration: const InputDecoration(
+                  labelText: "メモ",
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              ElevatedButton(
+                onPressed: saveClothing,
+                child: const Text("保存"),
+              ),
             ],
 
           ],

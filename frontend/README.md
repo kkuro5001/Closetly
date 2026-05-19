@@ -14,3 +14,6 @@ upload_service.dart
     Uri.parse('http://ローカルIPに変更:8080/upload')
     ipconfig
 
+
+- pubspec.yamlを変更時
+flutter pub getをすること

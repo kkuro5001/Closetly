@@ -1,5 +1,3 @@
-// pages/camera_page.dart
-
 import 'dart:io';
 import 'dart:convert';
 
@@ -35,8 +33,8 @@ class _CameraPageState extends State<CameraPage> {
   final colorController =
       TextEditingController();
 
-  final seasonController =
-      TextEditingController();
+  // 選択された季節
+  String selectedSeason = "春秋";
 
   Future<void> takePhoto() async {
 
@@ -141,20 +139,30 @@ class _CameraPageState extends State<CameraPage> {
       imagePath: image!.path,
       category: categoryController.text,
       color: colorController.text,
-      season: seasonController.text,
+      season: selectedSeason,
     );
 
     debugPrint("保存データ:");
     debugPrint("imagePath: ${image!.path}");
     debugPrint("category: ${categoryController.text}");
     debugPrint("color: ${colorController.text}");
-    debugPrint("season: ${seasonController.text}");
+    debugPrint("season: $selectedSeason");
 
     await DatabaseHelper.instance.insertClothing(
       clothing,
     );
 
     debugPrint("保存完了");
+
+    // Snackbar表示
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("服を保存しました"),
+        ),
+      );
+    }
+
     debugPrint("===== 保存終了 =====");
   }
 
@@ -256,18 +264,48 @@ class _CameraPageState extends State<CameraPage> {
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 20),
 
-                  // 季節入力
-                  TextField(
-                    controller:
-                        seasonController,
+                  // 季節選択
+                  DropdownButtonFormField<String>(
+                    value: selectedSeason,
                     decoration:
                         const InputDecoration(
                       labelText: "季節",
                       border: OutlineInputBorder(),
                     ),
-                    maxLines: 3,
+                    items: const [
+
+                      DropdownMenuItem(
+                        value: "春秋",
+                        child: Text("春秋"),
+                      ),
+
+                      DropdownMenuItem(
+                        value: "夏",
+                        child: Text("夏"),
+                      ),
+
+                      DropdownMenuItem(
+                        value: "冬",
+                        child: Text("冬"),
+                      ),
+
+                      DropdownMenuItem(
+                        value: "オールシーズン",
+                        child: Text("オールシーズン"),
+                      ),
+                    ],
+                    onChanged: (value) {
+
+                      debugPrint(
+                        "季節変更: $value",
+                      );
+
+                      setState(() {
+                        selectedSeason = value!;
+                      });
+                    },
                   ),
 
                   const SizedBox(height: 20),

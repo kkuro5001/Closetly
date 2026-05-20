@@ -29,6 +29,6 @@ frontend/linux/flutter/ephemeral/
 frontend/macos/Flutter/ephemeral/
 frontend/windows/flutter/ephemeral/
 
-# IDE 関連 (共有しない場合)
-frontend/.idea/
+# IDE 関連 共有しない
+.idea/
 frontend/*.iml

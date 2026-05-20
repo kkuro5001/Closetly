@@ -17,3 +17,6 @@ upload_service.dart
 
 - pubspec.yamlを変更時
 flutter pub getをすること
+
+- sqliteの削除
+& "C:\Users\kkuro\AppData\Local\Android\Sdk\platform-tools\adb.exe" uninstall com.example.frontend

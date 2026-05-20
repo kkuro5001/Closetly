@@ -35,7 +35,7 @@ class _CameraPageState extends State<CameraPage> {
   final colorController =
       TextEditingController();
 
-  final memoController =
+  final seasonController =
       TextEditingController();
 
   Future<void> takePhoto() async {
@@ -141,14 +141,14 @@ class _CameraPageState extends State<CameraPage> {
       imagePath: image!.path,
       category: categoryController.text,
       color: colorController.text,
-      memo: memoController.text,
+      season: seasonController.text,
     );
 
     debugPrint("保存データ:");
     debugPrint("imagePath: ${image!.path}");
     debugPrint("category: ${categoryController.text}");
     debugPrint("color: ${colorController.text}");
-    debugPrint("memo: ${memoController.text}");
+    debugPrint("season: ${seasonController.text}");
 
     await DatabaseHelper.instance.insertClothing(
       clothing,
@@ -258,13 +258,13 @@ class _CameraPageState extends State<CameraPage> {
 
                   const SizedBox(height: 10),
 
-                  // メモ入力
+                  // 季節入力
                   TextField(
                     controller:
-                        memoController,
+                        seasonController,
                     decoration:
                         const InputDecoration(
-                      labelText: "メモ",
+                      labelText: "季節",
                       border: OutlineInputBorder(),
                     ),
                     maxLines: 3,

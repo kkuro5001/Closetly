@@ -4,14 +4,14 @@ class Clothing {
   final String imagePath;
   final String category;
   final String color;
-  final String memo;
+  final String season;
 
   Clothing({
     this.id,
     required this.imagePath,
     required this.category,
     required this.color,
-    required this.memo,
+    required this.season,
   });
 
   // DB保存用
@@ -22,7 +22,7 @@ class Clothing {
       'imagePath': imagePath,
       'category': category,
       'color': color,
-      'memo': memo,
+      'season': season,
     };
   }
 
@@ -36,7 +36,7 @@ class Clothing {
       imagePath: map['imagePath'],
       category: map['category'],
       color: map['color'],
-      memo: map['memo'],
+      season: map['season'],
     );
   }
 }

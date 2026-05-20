@@ -48,7 +48,7 @@ class DatabaseHelper {
         imagePath TEXT NOT NULL,
         category TEXT NOT NULL,
         color TEXT NOT NULL,
-        memo TEXT NOT NULL
+        season TEXT NOT NULL
       )
     ''');
   }

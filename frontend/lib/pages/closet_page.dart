@@ -92,7 +92,7 @@ class _ClosetPageState
                   child: Column(
 
                     children: [
-
+                      //カテゴリー
                       Text(
                         clothing.category,
                         style:
@@ -101,7 +101,7 @@ class _ClosetPageState
                               FontWeight.bold,
                         ),
                       ),
-
+                      //季節
                       Text(
                         clothing.season,
                       ),

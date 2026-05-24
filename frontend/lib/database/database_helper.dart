@@ -65,4 +65,18 @@ class DatabaseHelper {
       clothing.toMap(),
     );
   }
+
+  //全ての服を取得
+  Future<List<Clothing>> getAllClothing() async {
+
+    final db = await database;
+
+    final result =
+        await db.query("clothes");
+
+    return result.map((e) {
+      return Clothing.fromMap(e);
+    }).toList();
+  }
 }
+

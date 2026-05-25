@@ -32,3 +32,5 @@ frontend/windows/flutter/ephemeral/
 # IDE 関連 共有しない
 .idea/
 frontend/*.iml
+
+memo.md

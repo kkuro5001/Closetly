@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../database/database_helper.dart';
 import '../models/clothing.dart';
+import 'clothing_detail_page.dart';
 
 class ClosetPage extends StatefulWidget {
   const ClosetPage({super.key});
@@ -68,47 +69,99 @@ class _ClosetPageState
           final clothing =
               clothes[index];
 
-          return Card(
+          return GestureDetector(
 
-            child: Column(
+            onTap: () {
 
-              children: [
+              Navigator.push(
 
-                Expanded(
+                context,
 
-                  child: Image.file(
-                    File(
-                      clothing.imagePath,
+                MaterialPageRoute(
+
+                  builder: (context) =>
+                      ClothingDetailPage(
+                    clothing: clothing,
+                  ),
+                ),
+              );
+            },
+
+            child: Card(
+
+              elevation: 3,
+
+              clipBehavior:
+                  Clip.antiAlias,
+
+              child: Column(
+
+                children: [
+
+                  Expanded(
+
+                    child: Image.file(
+                      File(
+                        clothing.imagePath,
+                      ),
+
+                      fit: BoxFit.cover,
+
+                      width:
+                          double.infinity,
                     ),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
                   ),
-                ),
 
-                Padding(
-                  padding:
-                      const EdgeInsets.all(8),
+                  Padding(
 
-                  child: Column(
+                    padding:
+                        const EdgeInsets.all(
+                      8,
+                    ),
 
-                    children: [
-                      //カテゴリー
-                      Text(
-                        clothing.category,
-                        style:
-                            const TextStyle(
-                          fontWeight:
-                              FontWeight.bold,
+                    child: Column(
+
+                      children: [
+
+                        // カテゴリ
+                        Text(
+
+                          clothing.category,
+
+                          style:
+                              const TextStyle(
+
+                            fontWeight:
+                                FontWeight.bold,
+
+                            fontSize: 16,
+                          ),
+
+                          overflow:
+                              TextOverflow
+                                  .ellipsis,
                         ),
-                      ),
-                      //季節
-                      Text(
-                        clothing.season,
-                      ),
-                    ],
+
+                        const SizedBox(
+                          height: 4,
+                        ),
+
+                        // 季節
+                        Text(
+
+                          clothing.season,
+
+                          style:
+                              const TextStyle(
+                            color:
+                                Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },

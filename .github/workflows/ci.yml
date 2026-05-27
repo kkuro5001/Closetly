@@ -1,4 +1,4 @@
-name: Closetly Ci
+name: Closetly-CI
 
 on:
   push:

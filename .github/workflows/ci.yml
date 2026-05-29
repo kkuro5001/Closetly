@@ -1,0 +1,56 @@
+name: Closetly-CI
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Run tests
+      - name: Test Go
+        working-directory: go
+        run: go test ./...
+
+      - name: Test Python
+        working-directory: python
+        run: python -m compileall .
+
+      # Build & Push Docker Images
+      - name: Build & Push Go
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }} ./go
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}
+
+      - name: Build & Push Python
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }} ./python
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}
+
+      #Docker image clean 最新の5個だけ残して削除
+      - name: Clean up old Go images
+        uses: vscodedev/docker-hub-cleanup-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          token: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: closetly-go
+          keep: 5
+
+      #Docker image clean 最新の5個だけ残して削除
+      - name: Clean up old Python images
+        uses: vscodedev/docker-hub-cleanup-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          token: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: closetly-python
+          keep: 5

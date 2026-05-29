@@ -40,19 +40,19 @@ jobs:
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}
 
       #Docker image clean 最新の5個だけ残して削除
-      - name: Clean up old Go images
-        uses: vscodedev/docker-hub-cleanup-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          token: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: closetly-go
-          keep: 5
+      # - name: Clean up old Go images
+      #   uses: vscodedev/docker-hub-cleanup-action@v1
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     token: ${{ secrets.DOCKERHUB_TOKEN }}
+      #     repository: closetly-go
+      #     keep: 5
 
       #Docker image clean 最新の5個だけ残して削除
-      - name: Clean up old Python images
-        uses: vscodedev/docker-hub-cleanup-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          token: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: closetly-python
-          keep: 5
+      # - name: Clean up old Python images
+      #   uses: vscodedev/docker-hub-cleanup-action@v1
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     token: ${{ secrets.DOCKERHUB_TOKEN }}
+      #     repository: closetly-python
+      #     keep: 5

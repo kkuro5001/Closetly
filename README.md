@@ -125,3 +125,5 @@ docker compose up --build
 flutter pub get
 flutter run
 ```
+
+test

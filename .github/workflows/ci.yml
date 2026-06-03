@@ -32,11 +32,15 @@ jobs:
 
       # Build & Push Docker Images
       - name: Build & Push Go
+        env:
+          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }} ./Go
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}
 
       - name: Build & Push Python
+        env:
+          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }} ./Python
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}

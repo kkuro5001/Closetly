@@ -33,12 +33,12 @@ jobs:
       # Build & Push Docker Images
       - name: Build & Push Go
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }} ./go
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }} ./Go
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}
 
       - name: Build & Push Python
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }} ./python
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }} ./Python
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}
 
       #Docker image clean 最新の5個だけ残して削除

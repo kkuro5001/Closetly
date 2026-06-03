@@ -15,6 +15,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # =========================================================
+      # 🔍 【最重要】シークレットが本当に届いているかのデバッグ
+      # =========================================================
+      - name: Debug Secrets Verification
+        run: |
+          echo "==== シークレットの文字数チェック ===="
+          echo "ユーザー名の文字数: ${#USER_CHECK}"
+          echo "トークンの文字数: ${#TOKEN_CHECK}"
+          echo "======================================"
+          
+          if [ ${#USER_CHECK} -eq 0 ]; then
+            echo "❌ エラー: DOCKERHUB_USERNAME が空っぽです！GitHubに登録されていません。"
+          else
+            echo "✅ DOCKERHUB_USERNAME は正常に読み込めています。"
+          fi
+          
+          if [ ${#TOKEN_CHECK} -eq 0 ]; then
+            echo "❌ エラー: DOCKERHUB_TOKEN が空っぽです！"
+          else
+            echo "✅ DOCKERHUB_TOKEN は正常に読み込めています。"
+          fi
+        env:
+          USER_CHECK: ${{ secrets.DOCKERHUB_USERNAME }}
+          TOKEN_CHECK: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Login Docker Hub
         uses: docker/login-action@v3
         with:

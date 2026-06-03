@@ -30,20 +30,23 @@ jobs:
         working-directory: Python
         run: python -m compileall .
 
-      # Build & Push Docker Images
-      - name: Build & Push Go
-        env:
-          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }} ./Go
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}
+      # =========================================================
+      # Build & Push Docker Images (Go)
+      # =========================================================
+      - name: Build Docker Image for Go
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }} ./Go
 
-      - name: Build & Push Python
-        env:
-          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }} ./Python
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}
+      - name: Push Docker Image for Go
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}
+
+      # =========================================================
+      # Build & Push Docker Images (Python)
+      # =========================================================
+      - name: Build Docker Image for Python
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }} ./Python
+
+      - name: Push Docker Image for Python
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}
 
       #Docker image clean 最新の5個だけ残して削除
       # - name: Clean up old Go images

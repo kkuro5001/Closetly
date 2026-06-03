@@ -10,7 +10,7 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
     #Githubで作成した環境名を指定
-    environment: productions
+    #environment: productions
 
     steps:
       - uses: actions/checkout@v4

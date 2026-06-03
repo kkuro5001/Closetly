@@ -23,11 +23,11 @@ jobs:
 
       # Run tests
       - name: Test Go
-        working-directory: go
+        working-directory: Go
         run: go test ./...
 
       - name: Test Python
-        working-directory: python
+        working-directory: Python
         run: python -m compileall .
 
       # Build & Push Docker Images

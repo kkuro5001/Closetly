@@ -28,9 +28,12 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Test Go
-      working-directory: Go
-      run: go test ./...
+    - name: Debug Docker Username
+      run: |
+        echo "X${{ secrets.DOCKERHUB_USERNAME }}X"
+        - name: Test Go
+          working-directory: Go
+          run: go test ./...
 
     - name: Test Python
       working-directory: Python

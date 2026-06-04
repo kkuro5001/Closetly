@@ -9,41 +9,40 @@ on:
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
-    #Githubで作成した環境名を指定
-    #environment: productions
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-go@v5
-      with:
-        go-version: '1.22'
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
 
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-    - uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Debug Docker Username
-      run: |
-        echo "X${{ secrets.DOCKERHUB_USERNAME }}X"
-        - name: Test Go
-          working-directory: Go
-          run: go test ./...
+      - name: Debug Docker Username
+        run: |
+          echo "X${{ secrets.DOCKERHUB_USERNAME }}X"
 
-    - name: Test Python
-      working-directory: Python
-      run: python -m compileall .
+      - name: Test Go
+        working-directory: Go
+        run: go test ./...
 
-    - name: Build Go
-      run: |
-        docker build \
-          -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}" \
-          ./Go
+      - name: Test Python
+        working-directory: Python
+        run: python -m compileall .
+
+      - name: Build Go
+        run: |
+          docker build \
+            -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}" \
+            ./Go
 
         #Docker image clean 最新の5個だけ残して削除
         # - name: Clean up old Go images

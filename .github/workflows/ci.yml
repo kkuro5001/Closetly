@@ -13,80 +13,49 @@ jobs:
     #environment: productions
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      # =========================================================
-      # 🔍 【最重要】シークレットが本当に届いているかのデバッグ
-      # =========================================================
-      - name: Debug Secrets Verification
-        run: |
-          echo "==== シークレットの文字数チェック ===="
-          echo "ユーザー名の文字数: ${#USER_CHECK}"
-          echo "トークンの文字数: ${#TOKEN_CHECK}"
-          echo "======================================"
-          
-          if [ ${#USER_CHECK} -eq 0 ]; then
-            echo "❌ エラー: DOCKERHUB_USERNAME が空っぽです！GitHubに登録されていません。"
-          else
-            echo "✅ DOCKERHUB_USERNAME は正常に読み込めています。"
-          fi
-          
-          if [ ${#TOKEN_CHECK} -eq 0 ]; then
-            echo "❌ エラー: DOCKERHUB_TOKEN が空っぽです！"
-          else
-            echo "✅ DOCKERHUB_TOKEN は正常に読み込めています。"
-          fi
-        env:
-          USER_CHECK: ${{ secrets.DOCKERHUB_USERNAME }}
-          TOKEN_CHECK: ${{ secrets.DOCKERHUB_TOKEN }}
+    - uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
 
-      - name: Login Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
 
-      # Run tests
-      - name: Test Go
-        working-directory: Go
-        run: go test ./...
+    - uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Test Python
-        working-directory: Python
-        run: python -m compileall .
+    - name: Test Go
+      working-directory: Go
+      run: go test ./...
 
-      # =========================================================
-      # Build & Push Docker Images (Go)
-      # =========================================================
-      - name: Build Docker Image for Go
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }} ./Go
+    - name: Test Python
+      working-directory: Python
+      run: python -m compileall .
 
-      - name: Push Docker Image for Go
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}
+    - name: Build Go
+      run: |
+        docker build \
+          -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}" \
+          ./Go
 
-      # =========================================================
-      # Build & Push Docker Images (Python)
-      # =========================================================
-      - name: Build Docker Image for Python
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }} ./Python
+        #Docker image clean 最新の5個だけ残して削除
+        # - name: Clean up old Go images
+        #   uses: vscodedev/docker-hub-cleanup-action@v1
+        #   with:
+        #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+        #     token: ${{ secrets.DOCKERHUB_TOKEN }}
+        #     repository: closetly-go
+        #     keep: 5
 
-      - name: Push Docker Image for Python
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}
-
-      #Docker image clean 最新の5個だけ残して削除
-      # - name: Clean up old Go images
-      #   uses: vscodedev/docker-hub-cleanup-action@v1
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     token: ${{ secrets.DOCKERHUB_TOKEN }}
-      #     repository: closetly-go
-      #     keep: 5
-
-      #Docker image clean 最新の5個だけ残して削除
-      # - name: Clean up old Python images
-      #   uses: vscodedev/docker-hub-cleanup-action@v1
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     token: ${{ secrets.DOCKERHUB_TOKEN }}
-      #     repository: closetly-python
-      #     keep: 5
+        # Docker image clean 最新の5個だけ残して削除
+        # - name: Clean up old Python images
+        #   uses: vscodedev/docker-hub-cleanup-action@v1
+        #   with:
+        #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+        #     token: ${{ secrets.DOCKERHUB_TOKEN }}
+        #     repository: closetly-python
+        #     keep: 5

@@ -48,9 +48,8 @@ jobs:
 
       - name: Push Go
         run: |
-          docker push \
-            "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:latest" \
-            "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}"
+          docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:latest"
+          docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}"
 
       # PythonをビルドしてDocker Hubにプッシュ
       - name: Build Python
@@ -62,6 +61,5 @@ jobs:
 
       - name: Push Python
         run: |
-          docker push \
-            "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:latest" \
-            "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}"
+          docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:latest"
+          docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}"

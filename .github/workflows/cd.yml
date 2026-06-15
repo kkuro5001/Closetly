@@ -7,19 +7,42 @@ on:
       - completed
 
 jobs:
-  deploy:
+  deploy-go:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - go
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Login Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Deploy to Server
+      - name: Deploy Go
         run: |
+          docker pull kkuro5001/closetly-go:latest
+
+          docker stop closetly-go || true
+          docker rm closetly-go || true
+
+          docker run -d \
+            --name closetly-go \
+            -p 8080:8080 \
+            --restart unless-stopped \
+            kkuro5001/closetly-go:latest
+
+  deploy-python:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on:
+      - self-hosted
+      - python
+
+    steps:
+      - name: Deploy Python
+        run: |
+          docker pull kkuro5001/closetly-python:latest
+
+          docker stop closetly-python || true
+          docker rm closetly-python || true
+
+          docker run -d \
+            --name closetly-python \
+            -p 5000:5000 \
+            --restart unless-stopped \
+            kkuro5001/closetly-python:latest

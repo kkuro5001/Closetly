@@ -65,7 +65,7 @@ YOLO
 
 ```
 Closetly
-├── frontend
+├── frontend(Flutter)
 │   ├── pages
 │   ├── models
 │   ├── database
@@ -97,6 +97,10 @@ Closetly
 
 ---
 
+# CI/CD
+
+GitHub Actions と Self-hosted Runner を使用して自動デプロイを行っています。
+
 # 今後の実装予定
 
 - YOLOによる服カテゴリ自動判定
@@ -125,5 +129,3 @@ docker compose up --build
 flutter pub get
 flutter run
 ```
-
-test8

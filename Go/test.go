@@ -12,49 +12,51 @@ import (
 )
 
 func TestHandler(c *gin.Context) {
-
 	fmt.Println("===== TEST START =====")
 
 	// ローカル画像読み込み
 	imageBytes, err := os.ReadFile("sample2.jpg")
 	if err != nil {
-
 		fmt.Println("画像読み込み失敗")
 		fmt.Println(err)
 
 		c.JSON(500, gin.H{
 			"error": "image read error",
 		})
-
 		return
 	}
 
 	fmt.Println("画像読み込み成功")
 	fmt.Println("画像サイズ:", len(imageBytes), "bytes")
 
+	// 環境変数から Python API のURLを取得
+	pythonAPIURL := os.Getenv("PYTHON_API_URL")
+	if pythonAPIURL == "" {
+		c.JSON(500, gin.H{
+			"error": "PYTHON_API_URL is not set",
+		})
+		return
+	}
+
 	// Pythonへ送信
-	fmt.Println("Pythonへ送信開始")
+	fmt.Println("Pythonへ送信開始:", pythonAPIURL+"/predict")
 
 	start := time.Now()
 
 	resp, err := http.Post(
-		"http://python:8000/predict",
+		pythonAPIURL+"/predict",
 		"application/octet-stream",
 		bytes.NewBuffer(imageBytes),
 	)
-
 	if err != nil {
-
 		fmt.Println("Python通信失敗")
 		fmt.Println(err)
 
 		c.JSON(500, gin.H{
-			"error": "python error",
+			"error": "python error: " + err.Error(),
 		})
-
 		return
 	}
-
 	defer resp.Body.Close()
 
 	elapsed := time.Since(start)
@@ -65,16 +67,13 @@ func TestHandler(c *gin.Context) {
 
 	// レスポンス読み込み
 	result, err := io.ReadAll(resp.Body)
-
 	if err != nil {
-
 		fmt.Println("レスポンス読み込み失敗")
 		fmt.Println(err)
 
 		c.JSON(500, gin.H{
 			"error": "response read error",
 		})
-
 		return
 	}
 
@@ -86,6 +85,6 @@ func TestHandler(c *gin.Context) {
 	fmt.Println("YOLO結果返却完了")
 	fmt.Println("===== TEST END =====")
 
-	// Flutter/curlへ返却
-	c.Data(200, "application/json", result)
+	// Flutter / curlへ返却
+	c.Data(resp.StatusCode, "application/json", result)
 }

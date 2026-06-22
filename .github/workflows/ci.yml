@@ -21,15 +21,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Debug Docker Username
-        run: |
-          echo "X${{ secrets.DOCKERHUB_USERNAME }}X"
-
       - name: Test Go
         working-directory: Go
         run: go test ./...
@@ -38,8 +29,14 @@ jobs:
         working-directory: Python
         run: python -m compileall .
 
-      # GoをビルドしてDocker Hubにプッシュ
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build Go
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           docker build \
             -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:latest" \
@@ -47,12 +44,13 @@ jobs:
             ./Go
 
       - name: Push Go
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:latest"
           docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}"
 
-      # PythonをビルドしてDocker Hubにプッシュ
       - name: Build Python
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           docker build \
             -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:latest" \
@@ -60,6 +58,7 @@ jobs:
             ./Python
 
       - name: Push Python
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:latest"
           docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}"

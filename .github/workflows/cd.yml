@@ -43,6 +43,6 @@ jobs:
 
           docker run -d \
             --name closetly-python \
-            -p 5000:5000 \
+            -p 8000:8000 \
             --restart unless-stopped \
             kkuro5001/closetly-python:latest

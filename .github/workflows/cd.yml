@@ -24,6 +24,7 @@ jobs:
           docker run -d \
             --name closetly-go \
             -p 8080:8080 \
+            -e PYTHON_API_URL=http://192.168.11.37:8000 \
             --restart unless-stopped \
             kkuro5001/closetly-go:latest
 

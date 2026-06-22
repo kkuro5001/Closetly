@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -23,12 +24,22 @@ func UploadHandler(c *gin.Context) {
 
 	//Pythonへ送信
 	body := &bytes.Buffer{}
-	io.Copy(body, file)
+	_, err = io.Copy(body, file)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "image read error"})
+		return
+	}
+
+	PYTHON_API_URL := os.Getenv("PYTHON_API_URL")
+	if PYTHON_API_URL == "" {
+		c.JSON(500, gin.H{"error": "PYTHON_API_URL is not set"})
+		return
+	}
 
 	fmt.Print("goからpythonへ画像送信")
 
 	resp, err := http.Post(
-		"http://python:8000/predict",
+		PYTHON_API_URL + "/predict",
 		"application/octet-stream",
 		body,
 	)

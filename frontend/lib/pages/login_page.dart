@@ -66,6 +66,12 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> loginAsTestUser() async {
+    emailController.text = "test@gmail.com";
+    passwordController.text = "password";
+    await login();
+  }
+
   String _authErrorMessage(AuthException e) {
     final message = e.message.toLowerCase();
 
@@ -209,6 +215,25 @@ class _LoginPageState extends State<LoginPage> {
                       );
                     },
                     child: const Text("アカウントをお持ちでない方はこちら"),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : loginAsTestUser,
+                    icon: const Icon(Icons.bug_report_outlined),
+                    label: const Text("テストユーザーでログイン"),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
                   ),
                 ),
               ],

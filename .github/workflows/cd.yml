@@ -47,3 +47,23 @@ jobs:
             -p 8000:8000 \
             --restart unless-stopped \
             kkuro5001/closetly-python:latest
+
+  deploy-frontend:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on:
+      - self-hosted
+      - frontend
+
+    steps:
+      - name: Deploy Frontend
+        run: |
+          docker pull kkuro5001/closetly-frontend:latest
+
+          docker stop closetly-frontend || true
+          docker rm closetly-frontend || true
+
+          docker run -d \
+            --name closetly-frontend \
+            -p 80:80 \
+            --restart unless-stopped \
+            kkuro5001/closetly-frontend:latest

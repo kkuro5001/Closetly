@@ -10,3 +10,8 @@ services:
     build: ./Python
     ports:
       - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"

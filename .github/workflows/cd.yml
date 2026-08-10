@@ -56,6 +56,20 @@ jobs:
       - frontend
 
     steps:
+      - name: Check Frontend Runner
+        run: |
+          echo "=== HOST ==="
+          hostname
+
+          echo "=== USER ==="
+          whoami
+
+          echo "=== GROUPS ==="
+          id
+
+          echo "=== DOCKER ==="
+          docker ps
+
       - name: Deploy Frontend
         run: |
           docker pull kkuro5001/closetly-frontend:latest
@@ -66,5 +80,6 @@ jobs:
           docker run -d \
             --name closetly-frontend \
             -p 80:80 \
+            --security-opt apparmor=unconfined \
             --restart unless-stopped \
             kkuro5001/closetly-frontend:latest

@@ -1,14 +1,14 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../models/clothing.dart';
+import '../services/storage_service.dart';
 
 class ClothingDetailPage extends StatelessWidget {
 
   final Clothing clothing;
+  final storageService = StorageService();
 
-  const ClothingDetailPage({
+  ClothingDetailPage({
     super.key,
     required this.clothing,
   });
@@ -33,9 +33,41 @@ class ClothingDetailPage extends StatelessWidget {
           children: [
 
             Center(
-              child: Image.file(
-                File(clothing.imagePath),
-                height: 350,
+              child: FutureBuilder<String>(
+                future: storageService.getSignedUrl(clothing.imagePath),
+                builder: (context, snapshot) {
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox(
+                      height: 350,
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return const SizedBox(
+                      height: 350,
+                      child: Center(
+                        child: Icon(Icons.broken_image, size: 64),
+                      ),
+                    );
+                  }
+
+                  return Image.network(
+                    snapshot.data!,
+                    height: 350,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const SizedBox(
+                        height: 350,
+                        child: Center(
+                          child: Icon(Icons.broken_image, size: 64),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
 

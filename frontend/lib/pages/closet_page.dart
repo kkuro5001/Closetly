@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../database/database_helper.dart';
 import '../models/clothing.dart';
+import '../services/storage_service.dart';
 import 'clothing_detail_page.dart';
 
 class ClosetPage extends StatefulWidget {
@@ -18,6 +17,7 @@ class _ClosetPageState
     extends State<ClosetPage> {
 
   List<Clothing> clothes = [];
+  final storageService = StorageService();
 
   @override
   void initState() {
@@ -99,16 +99,32 @@ class _ClosetPageState
                 children: [
 
                   Expanded(
+                    child: FutureBuilder<String>(
+                      future: storageService.getSignedUrl(clothing.imagePath),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
 
-                    child: Image.file(
-                      File(
-                        clothing.imagePath,
-                      ),
+                        if (snapshot.hasError || !snapshot.hasData) {
+                          return const Center(
+                            child: Icon(Icons.broken_image),
+                          );
+                        }
 
-                      fit: BoxFit.cover,
-
-                      width:
-                          double.infinity,
+                        return Image.network(
+                          snapshot.data!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(
+                              child: Icon(Icons.broken_image),
+                            );
+                          },
+                        );
+                      },
                     ),
                   ),
 

@@ -3,8 +3,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/upload_service.dart';
+import '../services/storage_service.dart';
 import '../database/database_helper.dart';
 import '../models/clothing.dart';
 
@@ -18,8 +20,11 @@ class CameraPage extends StatefulWidget {
 class _CameraPageState extends State<CameraPage> {
 
   File? image;
-
   final picker = ImagePicker();
+  final storageService = StorageService();
+
+  // Supabaseにアップロード後のパスを保持
+  String? uploadedImagePath;
 
   // AI結果保持
   String? category;
@@ -27,11 +32,8 @@ class _CameraPageState extends State<CameraPage> {
   String? suggestion;
 
   // 入力用コントローラー
-  final categoryController =
-      TextEditingController();
-
-  final colorController =
-      TextEditingController();
+  final categoryController = TextEditingController();
+  final colorController = TextEditingController();
 
   // 選択された季節
   String selectedSeason = "春秋";
@@ -47,21 +49,51 @@ class _CameraPageState extends State<CameraPage> {
     debugPrint("撮影完了");
 
     if (pickedFile == null) {
-
       debugPrint("画像なし");
       debugPrint("===== CAMERA END =====");
-
       return;
     }
 
     debugPrint("画像パス: ${pickedFile.path}");
 
+    final localFile = File(pickedFile.path);
+
     setState(() {
-      image = File(pickedFile.path);
+      image = localFile;
     });
 
     debugPrint("画像表示更新完了");
 
+    // ① Supabaseへoriginal画像をアップロード
+    try {
+
+      debugPrint("===== Supabaseアップロード開始 =====");
+
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final fileName = "${DateTime.now().millisecondsSinceEpoch}.jpg";
+
+      final path = await storageService.uploadOriginal(
+        localFile,
+        userId,
+        fileName,
+      );
+
+      setState(() {
+        uploadedImagePath = path;
+      });
+
+      debugPrint("Supabaseアップロード完了: $path");
+
+    } catch (e, stackTrace) {
+
+      debugPrint("===== Supabaseアップロードエラー =====");
+      debugPrint(e.toString());
+      debugPrint(stackTrace.toString());
+
+      return; // アップロード失敗時はAI解析に進まない
+    }
+
+    // ② AI解析（従来通りGoへローカルファイルを送信）
     try {
 
       debugPrint("===== GO通信開始 =====");
@@ -84,23 +116,14 @@ class _CameraPageState extends State<CameraPage> {
       debugPrint("suggestion: ${decoded['suggestion']}");
 
       // 入力欄へ自動反映
-      categoryController.text =
-          decoded['category'] ?? "";
-
-      colorController.text =
-          decoded['color'] ?? "";
+      categoryController.text = decoded['category'] ?? "";
+      colorController.text = decoded['color'] ?? "";
 
       // 画面更新
       setState(() {
-
-        category =
-            decoded['category'];
-
-        color =
-            decoded['color'];
-
-        suggestion =
-            decoded['suggestion'];
+        category = decoded['category'];
+        color = decoded['color'];
+        suggestion = decoded['suggestion'];
       });
 
       debugPrint("setState完了");
@@ -111,13 +134,9 @@ class _CameraPageState extends State<CameraPage> {
     } catch (e, stackTrace) {
 
       debugPrint("===== エラー発生 =====");
-
       debugPrint(e.toString());
-
       debugPrint("===== STACK TRACE =====");
-
       debugPrint(stackTrace.toString());
-
     }
 
     debugPrint("===== CAMERA END =====");
@@ -128,22 +147,20 @@ class _CameraPageState extends State<CameraPage> {
 
     debugPrint("===== 保存開始 =====");
 
-    if (image == null) {
-
-      debugPrint("imageがnull");
-
+    if (uploadedImagePath == null) {
+      debugPrint("uploadedImagePathがnull");
       return;
     }
 
     final clothing = Clothing(
-      imagePath: image!.path,
+      imagePath: uploadedImagePath!,  // ← Supabaseのstorage pathを保存
       category: categoryController.text,
       color: colorController.text,
       season: selectedSeason,
     );
 
     debugPrint("保存データ:");
-    debugPrint("imagePath: ${image!.path}");
+    debugPrint("imagePath: $uploadedImagePath");
     debugPrint("category: ${categoryController.text}");
     debugPrint("color: ${colorController.text}");
     debugPrint("season: $selectedSeason");
@@ -242,10 +259,8 @@ class _CameraPageState extends State<CameraPage> {
 
                   // カテゴリ入力
                   TextField(
-                    controller:
-                        categoryController,
-                    decoration:
-                        const InputDecoration(
+                    controller: categoryController,
+                    decoration: const InputDecoration(
                       labelText: "カテゴリ",
                       border: OutlineInputBorder(),
                     ),
@@ -255,10 +270,8 @@ class _CameraPageState extends State<CameraPage> {
 
                   // 色入力
                   TextField(
-                    controller:
-                        colorController,
-                    decoration:
-                        const InputDecoration(
+                    controller: colorController,
+                    decoration: const InputDecoration(
                       labelText: "色",
                       border: OutlineInputBorder(),
                     ),
@@ -269,39 +282,30 @@ class _CameraPageState extends State<CameraPage> {
                   // 季節選択
                   DropdownButtonFormField<String>(
                     value: selectedSeason,
-                    decoration:
-                        const InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: "季節",
                       border: OutlineInputBorder(),
                     ),
                     items: const [
-
                       DropdownMenuItem(
                         value: "春秋",
                         child: Text("春秋"),
                       ),
-
                       DropdownMenuItem(
                         value: "夏",
                         child: Text("夏"),
                       ),
-
                       DropdownMenuItem(
                         value: "冬",
                         child: Text("冬"),
                       ),
-
                       DropdownMenuItem(
                         value: "オールシーズン",
                         child: Text("オールシーズン"),
                       ),
                     ],
                     onChanged: (value) {
-
-                      debugPrint(
-                        "季節変更: $value",
-                      );
-
+                      debugPrint("季節変更: $value");
                       setState(() {
                         selectedSeason = value!;
                       });

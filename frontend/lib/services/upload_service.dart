@@ -1,8 +1,10 @@
 //flutterからGoに画像を送信する
+import 'dart:typed_data';
+
 import 'package:http/http.dart' as http;
 
 class UploadService {
-  static Future<String> uploadImage(String imagePath) async {
+  static Future<String> uploadImage(Uint8List imageBytes, String fileName) async {
     var request = http.MultipartRequest(
       'POST',
       //todo : ipをgoのサーバーのipに変更すること
@@ -10,9 +12,10 @@ class UploadService {
     );
 
     request.files.add(
-      await http.MultipartFile.fromPath(
+      http.MultipartFile.fromBytes(
         'image',
-        imagePath,
+        imageBytes,
+        filename: fileName,
       ),
     );
     //送信

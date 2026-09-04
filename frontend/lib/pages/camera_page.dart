@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/upload_service.dart';
 import '../services/storage_service.dart';
-import '../database/database_helper.dart';
+import '../services/clothing_service.dart';
 import '../models/clothing.dart';
 
 class CameraPage extends StatefulWidget {
@@ -19,12 +19,16 @@ class CameraPage extends StatefulWidget {
 
 class _CameraPageState extends State<CameraPage> {
 
-  File? image;
+  Uint8List? image;
   final picker = ImagePicker();
   final storageService = StorageService();
+  final clothingService = ClothingService();
 
   // Supabaseにアップロード後のパスを保持
   String? uploadedImagePath;
+
+  // Supabaseアップロード用に選択中の画像ファイル名
+  String? pickedFileName;
 
   // AI結果保持
   String? category;
@@ -38,12 +42,16 @@ class _CameraPageState extends State<CameraPage> {
   // 選択された季節
   String selectedSeason = "春秋";
 
-  Future<void> takePhoto() async {
+  Future<void> takePhoto() => _pickAndProcessImage(ImageSource.camera);
+
+  Future<void> pickFromGallery() => _pickAndProcessImage(ImageSource.gallery);
+
+  Future<void> _pickAndProcessImage(ImageSource source) async {
 
     debugPrint("===== CAMERA START =====");
 
     final pickedFile = await picker.pickImage(
-      source: ImageSource.camera,
+      source: source,
     );
 
     debugPrint("撮影完了");
@@ -56,50 +64,25 @@ class _CameraPageState extends State<CameraPage> {
 
     debugPrint("画像パス: ${pickedFile.path}");
 
-    final localFile = File(pickedFile.path);
+    final imageBytes = await pickedFile.readAsBytes();
+    final fileName = "${DateTime.now().millisecondsSinceEpoch}.jpg";
 
     setState(() {
-      image = localFile;
+      image = imageBytes;
+      pickedFileName = fileName;
+      uploadedImagePath = null; // 新しい画像を選び直したのでアップロード状態をリセット
     });
 
     debugPrint("画像表示更新完了");
 
-    // ① Supabaseへoriginal画像をアップロード
-    try {
-
-      debugPrint("===== Supabaseアップロード開始 =====");
-
-      final userId = Supabase.instance.client.auth.currentUser!.id;
-      final fileName = "${DateTime.now().millisecondsSinceEpoch}.jpg";
-
-      final path = await storageService.uploadOriginal(
-        localFile,
-        userId,
-        fileName,
-      );
-
-      setState(() {
-        uploadedImagePath = path;
-      });
-
-      debugPrint("Supabaseアップロード完了: $path");
-
-    } catch (e, stackTrace) {
-
-      debugPrint("===== Supabaseアップロードエラー =====");
-      debugPrint(e.toString());
-      debugPrint(stackTrace.toString());
-
-      return; // アップロード失敗時はAI解析に進まない
-    }
-
-    // ② AI解析（従来通りGoへローカルファイルを送信）
+    // AI解析（従来通りGoへローカルファイルを送信）
     try {
 
       debugPrint("===== GO通信開始 =====");
 
       final result = await UploadService.uploadImage(
-        pickedFile.path,
+        imageBytes,
+        fileName,
       );
 
       debugPrint("===== GOレスポンス =====");
@@ -142,6 +125,55 @@ class _CameraPageState extends State<CameraPage> {
     debugPrint("===== CAMERA END =====");
   }
 
+  // 選択中の画像をSupabase Storageへアップロード
+  Future<void> uploadToSupabase() async {
+
+    if (image == null || pickedFileName == null) {
+      return;
+    }
+
+    debugPrint("===== Supabaseアップロード開始 =====");
+
+    try {
+
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+
+      final path = await storageService.uploadOriginal(
+        image!,
+        userId,
+        pickedFileName!,
+      );
+
+      setState(() {
+        uploadedImagePath = path;
+      });
+
+      debugPrint("Supabaseアップロード完了: $path");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("画像をSupabaseに保存しました"),
+          ),
+        );
+      }
+
+    } catch (e, stackTrace) {
+
+      debugPrint("===== Supabaseアップロードエラー =====");
+      debugPrint(e.toString());
+      debugPrint(stackTrace.toString());
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("画像の保存に失敗しました: $e"),
+          ),
+        );
+      }
+    }
+  }
+
   // 撮影した服を保存
   Future<void> saveClothing() async {
 
@@ -149,6 +181,15 @@ class _CameraPageState extends State<CameraPage> {
 
     if (uploadedImagePath == null) {
       debugPrint("uploadedImagePathがnull");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("先に「追加」ボタンで画像をSupabaseに保存してください"),
+          ),
+        );
+      }
+
       return;
     }
 
@@ -165,7 +206,7 @@ class _CameraPageState extends State<CameraPage> {
     debugPrint("color: ${colorController.text}");
     debugPrint("season: $selectedSeason");
 
-    await DatabaseHelper.instance.insertClothing(
+    await clothingService.insertClothing(
       clothing,
     );
 
@@ -206,17 +247,36 @@ class _CameraPageState extends State<CameraPage> {
 
                 // 撮影画像
                 if (image != null)
-                  Image.file(
+                  Image.memory(
                     image!,
                     height: 300,
                   ),
 
+                // Supabaseへの追加ボタン
+                if (image != null) ...[
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: uploadedImagePath == null ? uploadToSupabase : null,
+                    child: Text(uploadedImagePath == null ? "追加" : "追加済み"),
+                  ),
+                ],
+
                 const SizedBox(height: 20),
 
-                // 撮影ボタン
-                ElevatedButton(
-                  onPressed: takePhoto,
-                  child: const Text("写真を撮る"),
+                // 撮影・追加ボタン
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: takePhoto,
+                      child: const Text("写真を撮る"),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: pickFromGallery,
+                      child: const Text("写真を追加"),
+                    ),
+                  ],
                 ),
 
                 // AI結果表示

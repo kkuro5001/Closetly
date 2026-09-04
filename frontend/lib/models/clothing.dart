@@ -14,26 +14,25 @@ class Clothing {
     required this.season,
   });
 
-  // DB保存用
+  // Supabase保存用
   Map<String, dynamic> toMap() {
 
     return {
-      'id': id,
-      'imagePath': imagePath,
+      'image_path': imagePath,
       'category': category,
       'color': color,
       'season': season,
     };
   }
 
-  // DB取得用
+  // Supabase取得用
   factory Clothing.fromMap(
     Map<String, dynamic> map,
   ) {
 
     return Clothing(
       id: map['id'],
-      imagePath: map['imagePath'],
+      imagePath: map['image_path'],
       category: map['category'],
       color: map['color'],
       season: map['season'],

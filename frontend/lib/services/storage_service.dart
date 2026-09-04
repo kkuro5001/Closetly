@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class StorageService {
   final _supabase = Supabase.instance.client;
-  static const _bucket = 'closet-images';
+  static const _bucket = 'closety-image';
 
   /// オリジナル画像をアップロード（Web/モバイル共通でバイト列を使用）
   Future<String> uploadOriginal(Uint8List imageBytes, String userId, String fileName) async {

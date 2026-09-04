@@ -20,6 +20,9 @@ class _ClosetPageState
   final storageService = StorageService();
   final clothingService = ClothingService();
 
+  bool isLoading = true;
+  String? errorMessage;
+
   @override
   void initState() {
     super.initState();
@@ -28,13 +31,31 @@ class _ClosetPageState
 
   Future<void> loadClothes() async {
 
-    final result =
-        await clothingService
-            .getAllClothing();
-
     setState(() {
-      clothes = result;
+      isLoading = true;
+      errorMessage = null;
     });
+
+    try {
+
+      final result = await clothingService.getAllClothing();
+
+      setState(() {
+        clothes = result;
+        isLoading = false;
+      });
+
+    } catch (e, stackTrace) {
+
+      debugPrint("===== クローゼット取得エラー =====");
+      debugPrint(e.toString());
+      debugPrint(stackTrace.toString());
+
+      setState(() {
+        errorMessage = e.toString();
+        isLoading = false;
+      });
+    }
   }
 
   @override
@@ -44,9 +65,56 @@ class _ClosetPageState
 
       appBar: AppBar(
         title: const Text("クローゼット"),
+        actions: [
+          IconButton(
+            onPressed: loadClothes,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
 
-      body: GridView.builder(
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
+              Text("服の取得に失敗しました\n$errorMessage", textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: loadClothes,
+                child: const Text("再読み込み"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (clothes.isEmpty) {
+      return const Center(
+        child: Text("まだ服が登録されていません"),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: loadClothes,
+      child: GridView.builder(
 
         padding:
             const EdgeInsets.all(12),

@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,7 +19,7 @@ class CameraPage extends StatefulWidget {
 
 class _CameraPageState extends State<CameraPage> {
 
-  File? image;
+  Uint8List? image;
   final picker = ImagePicker();
   final storageService = StorageService();
 
@@ -38,12 +38,16 @@ class _CameraPageState extends State<CameraPage> {
   // 選択された季節
   String selectedSeason = "春秋";
 
-  Future<void> takePhoto() async {
+  Future<void> takePhoto() => _pickAndProcessImage(ImageSource.camera);
+
+  Future<void> pickFromGallery() => _pickAndProcessImage(ImageSource.gallery);
+
+  Future<void> _pickAndProcessImage(ImageSource source) async {
 
     debugPrint("===== CAMERA START =====");
 
     final pickedFile = await picker.pickImage(
-      source: ImageSource.camera,
+      source: source,
     );
 
     debugPrint("撮影完了");
@@ -56,13 +60,15 @@ class _CameraPageState extends State<CameraPage> {
 
     debugPrint("画像パス: ${pickedFile.path}");
 
-    final localFile = File(pickedFile.path);
+    final imageBytes = await pickedFile.readAsBytes();
 
     setState(() {
-      image = localFile;
+      image = imageBytes;
     });
 
     debugPrint("画像表示更新完了");
+
+    final fileName = "${DateTime.now().millisecondsSinceEpoch}.jpg";
 
     // ① Supabaseへoriginal画像をアップロード
     try {
@@ -70,10 +76,9 @@ class _CameraPageState extends State<CameraPage> {
       debugPrint("===== Supabaseアップロード開始 =====");
 
       final userId = Supabase.instance.client.auth.currentUser!.id;
-      final fileName = "${DateTime.now().millisecondsSinceEpoch}.jpg";
 
       final path = await storageService.uploadOriginal(
-        localFile,
+        imageBytes,
         userId,
         fileName,
       );
@@ -99,7 +104,8 @@ class _CameraPageState extends State<CameraPage> {
       debugPrint("===== GO通信開始 =====");
 
       final result = await UploadService.uploadImage(
-        pickedFile.path,
+        imageBytes,
+        fileName,
       );
 
       debugPrint("===== GOレスポンス =====");
@@ -206,17 +212,27 @@ class _CameraPageState extends State<CameraPage> {
 
                 // 撮影画像
                 if (image != null)
-                  Image.file(
+                  Image.memory(
                     image!,
                     height: 300,
                   ),
 
                 const SizedBox(height: 20),
 
-                // 撮影ボタン
-                ElevatedButton(
-                  onPressed: takePhoto,
-                  child: const Text("写真を撮る"),
+                // 撮影・追加ボタン
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: takePhoto,
+                      child: const Text("写真を撮る"),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: pickFromGallery,
+                      child: const Text("写真を追加"),
+                    ),
+                  ],
                 ),
 
                 // AI結果表示

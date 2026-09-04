@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../database/database_helper.dart';
 import '../models/clothing.dart';
-import '../services/clothing_service.dart';
 import '../services/storage_service.dart';
 import 'clothing_detail_page.dart';
 
@@ -18,7 +18,6 @@ class _ClosetPageState
 
   List<Clothing> clothes = [];
   final storageService = StorageService();
-  final clothingService = ClothingService();
 
   @override
   void initState() {
@@ -29,7 +28,7 @@ class _ClosetPageState
   Future<void> loadClothes() async {
 
     final result =
-        await clothingService
+        await DatabaseHelper.instance
             .getAllClothing();
 
     setState(() {

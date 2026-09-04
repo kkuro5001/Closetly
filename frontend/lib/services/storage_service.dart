@@ -1,27 +1,28 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:io';
 
 class StorageService {
   final _supabase = Supabase.instance.client;
-  static const _bucket = 'closet-images';
+  static const _bucket = 'closety-image';
 
-  /// オリジナル画像をアップロード
-  Future<String> uploadOriginal(File imageFile, String userId, String fileName) async {
+  /// オリジナル画像をアップロード（Web/モバイル共通でバイト列を使用）
+  Future<String> uploadOriginal(Uint8List imageBytes, String userId, String fileName) async {
     final path = '$userId/original/$fileName';
-    await _supabase.storage.from(_bucket).upload(
+    await _supabase.storage.from(_bucket).uploadBinary(
       path,
-      imageFile,
+      imageBytes,
       fileOptions: const FileOptions(upsert: true),
     );
     return path;
   }
 
-  /// 加工済み画像をアップロード
-  Future<String> uploadProcessed(File imageFile, String userId, String fileName) async {
+  /// 加工済み画像をアップロード（Web/モバイル共通でバイト列を使用）
+  Future<String> uploadProcessed(Uint8List imageBytes, String userId, String fileName) async {
     final path = '$userId/processed/$fileName';
-    await _supabase.storage.from(_bucket).upload(
+    await _supabase.storage.from(_bucket).uploadBinary(
       path,
-      imageFile,
+      imageBytes,
       fileOptions: const FileOptions(upsert: true),
     );
     return path;

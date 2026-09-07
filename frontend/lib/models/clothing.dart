@@ -5,6 +5,7 @@ class Clothing {
   final String category;
   final String color;
   final String season;
+  final DateTime? createdAt;
 
   Clothing({
     this.id,
@@ -12,6 +13,7 @@ class Clothing {
     required this.category,
     required this.color,
     required this.season,
+    this.createdAt,
   });
 
   // Supabase保存用
@@ -36,6 +38,9 @@ class Clothing {
       category: map['category'],
       color: map['color'],
       season: map['season'],
+      createdAt: map['created_at'] == null
+          ? null
+          : DateTime.parse(map['created_at']),
     );
   }
 }

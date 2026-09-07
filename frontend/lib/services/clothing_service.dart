@@ -13,6 +13,11 @@ class ClothingService {
     await _supabase.from(_table).insert(clothing.toMap());
   }
 
+  // 服を削除
+  Future<void> deleteClothing(int id) async {
+    await _supabase.from(_table).delete().eq('id', id);
+  }
+
   // 全ての服を取得
   Future<List<Clothing>> getAllClothing() async {
 

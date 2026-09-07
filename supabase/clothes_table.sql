@@ -22,3 +22,9 @@ on public.clothes
 for insert
 to authenticated
 with check (user_id = auth.uid());
+
+create policy "服の削除"
+on public.clothes
+for delete
+to authenticated
+using (user_id = auth.uid());

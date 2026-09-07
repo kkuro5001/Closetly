@@ -1,14 +1,26 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../services/upload_service.dart';
 import '../services/storage_service.dart';
 import '../services/clothing_service.dart';
 import '../models/clothing.dart';
+
+const _categoryOptions = [
+  "Tシャツ",
+  "シャツ",
+  "パーカー",
+  "セーター",
+  "アウター",
+  "パンツ",
+  "スカート",
+  "ワンピース",
+  "靴",
+  "帽子",
+  "その他",
+];
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
@@ -24,29 +36,23 @@ class _CameraPageState extends State<CameraPage> {
   final storageService = StorageService();
   final clothingService = ClothingService();
 
-  // Supabaseにアップロード後のパスを保持
-  String? uploadedImagePath;
-
   // Supabaseアップロード用に選択中の画像ファイル名
   String? pickedFileName;
 
-  // AI結果保持
-  String? category;
-  String? color;
-  String? suggestion;
+  bool isSaving = false;
 
   // 入力用コントローラー
-  final categoryController = TextEditingController();
   final colorController = TextEditingController();
 
-  // 選択された季節
+  // 選択されたカテゴリ・季節
+  String selectedCategory = _categoryOptions.first;
   String selectedSeason = "春秋";
 
-  Future<void> takePhoto() => _pickAndProcessImage(ImageSource.camera);
+  Future<void> takePhoto() => _pickImage(ImageSource.camera);
 
-  Future<void> pickFromGallery() => _pickAndProcessImage(ImageSource.gallery);
+  Future<void> pickFromGallery() => _pickImage(ImageSource.gallery);
 
-  Future<void> _pickAndProcessImage(ImageSource source) async {
+  Future<void> _pickImage(ImageSource source) async {
 
     debugPrint("===== CAMERA START =====");
 
@@ -70,155 +76,86 @@ class _CameraPageState extends State<CameraPage> {
     setState(() {
       image = imageBytes;
       pickedFileName = fileName;
-      uploadedImagePath = null; // 新しい画像を選び直したのでアップロード状態をリセット
     });
 
     debugPrint("画像表示更新完了");
-
-    // AI解析（従来通りGoへローカルファイルを送信）
-    try {
-
-      debugPrint("===== GO通信開始 =====");
-
-      final result = await UploadService.uploadImage(
-        imageBytes,
-        fileName,
-      );
-
-      debugPrint("===== GOレスポンス =====");
-      debugPrint(result);
-
-      // JSON解析
-      final decoded = jsonDecode(result);
-
-      debugPrint("===== JSON解析結果 =====");
-      debugPrint(decoded.toString());
-
-      debugPrint("category: ${decoded['category']}");
-      debugPrint("color: ${decoded['color']}");
-      debugPrint("suggestion: ${decoded['suggestion']}");
-
-      // 入力欄へ自動反映
-      categoryController.text = decoded['category'] ?? "";
-      colorController.text = decoded['color'] ?? "";
-
-      // 画面更新
-      setState(() {
-        category = decoded['category'];
-        color = decoded['color'];
-        suggestion = decoded['suggestion'];
-      });
-
-      debugPrint("setState完了");
-      debugPrint("現在のcategory: $category");
-
-      debugPrint("===== CAMERA SUCCESS =====");
-
-    } catch (e, stackTrace) {
-
-      debugPrint("===== エラー発生 =====");
-      debugPrint(e.toString());
-      debugPrint("===== STACK TRACE =====");
-      debugPrint(stackTrace.toString());
-    }
-
     debugPrint("===== CAMERA END =====");
   }
 
-  // 選択中の画像をSupabase Storageへアップロード
-  Future<void> uploadToSupabase() async {
+  // 画像をSupabase Storageへアップロードし、服の情報をSupabaseへ保存
+  Future<void> saveClothing() async {
 
     if (image == null || pickedFileName == null) {
       return;
     }
 
-    debugPrint("===== Supabaseアップロード開始 =====");
+    debugPrint("===== 保存開始 =====");
+
+    setState(() {
+      isSaving = true;
+    });
 
     try {
 
+      debugPrint("===== Supabaseアップロード開始 =====");
+
       final userId = Supabase.instance.client.auth.currentUser!.id;
 
-      final path = await storageService.uploadOriginal(
+      final imagePath = await storageService.uploadOriginal(
         image!,
         userId,
         pickedFileName!,
       );
 
-      setState(() {
-        uploadedImagePath = path;
-      });
+      debugPrint("Supabaseアップロード完了: $imagePath");
 
-      debugPrint("Supabaseアップロード完了: $path");
+      final clothing = Clothing(
+        imagePath: imagePath,
+        category: selectedCategory,
+        color: colorController.text,
+        season: selectedSeason,
+      );
+
+      debugPrint("保存データ:");
+      debugPrint("imagePath: $imagePath");
+      debugPrint("category: $selectedCategory");
+      debugPrint("color: ${colorController.text}");
+      debugPrint("season: $selectedSeason");
+
+      await clothingService.insertClothing(
+        clothing,
+      );
+
+      debugPrint("保存完了");
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("画像をSupabaseに保存しました"),
+            content: Text("服を保存しました"),
           ),
         );
       }
 
     } catch (e, stackTrace) {
 
-      debugPrint("===== Supabaseアップロードエラー =====");
+      debugPrint("===== 保存エラー =====");
       debugPrint(e.toString());
       debugPrint(stackTrace.toString());
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("画像の保存に失敗しました: $e"),
+            content: Text("服の保存に失敗しました: $e"),
           ),
         );
       }
-    }
-  }
 
-  // 撮影した服を保存
-  Future<void> saveClothing() async {
-
-    debugPrint("===== 保存開始 =====");
-
-    if (uploadedImagePath == null) {
-      debugPrint("uploadedImagePathがnull");
-
+    } finally {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("先に「追加」ボタンで画像をSupabaseに保存してください"),
-          ),
-        );
+        setState(() {
+          isSaving = false;
+        });
       }
-
-      return;
-    }
-
-    final clothing = Clothing(
-      imagePath: uploadedImagePath!,  // ← Supabaseのstorage pathを保存
-      category: categoryController.text,
-      color: colorController.text,
-      season: selectedSeason,
-    );
-
-    debugPrint("保存データ:");
-    debugPrint("imagePath: $uploadedImagePath");
-    debugPrint("category: ${categoryController.text}");
-    debugPrint("color: ${colorController.text}");
-    debugPrint("season: $selectedSeason");
-
-    await clothingService.insertClothing(
-      clothing,
-    );
-
-    debugPrint("保存完了");
-
-    // Snackbar表示
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("服を保存しました"),
-        ),
-      );
     }
 
     debugPrint("===== 保存終了 =====");
@@ -228,7 +165,6 @@ class _CameraPageState extends State<CameraPage> {
   Widget build(BuildContext context) {
 
     debugPrint("===== build実行 =====");
-    debugPrint("category: $category");
 
     return Scaffold(
 
@@ -252,15 +188,6 @@ class _CameraPageState extends State<CameraPage> {
                     height: 300,
                   ),
 
-                // Supabaseへの追加ボタン
-                if (image != null) ...[
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: uploadedImagePath == null ? uploadToSupabase : null,
-                    child: Text(uploadedImagePath == null ? "追加" : "追加済み"),
-                  ),
-                ],
-
                 const SizedBox(height: 20),
 
                 // 撮影・追加ボタン
@@ -279,51 +206,29 @@ class _CameraPageState extends State<CameraPage> {
                   ],
                 ),
 
-                // AI結果表示
-                if (category != null) ...[
+                // 服の情報入力
+                if (image != null) ...[
 
                   const SizedBox(height: 20),
 
-                  const Text(
-                    "AI判定結果",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  Text(
-                    "カテゴリ: $category",
-                    style: const TextStyle(
-                      fontSize: 18,
-                    ),
-                  ),
-
-                  Text(
-                    "色: $color",
-                    style: const TextStyle(
-                      fontSize: 18,
-                    ),
-                  ),
-
-                  Text(
-                    "おすすめ: $suggestion",
-                    style: const TextStyle(
-                      fontSize: 18,
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // カテゴリ入力
-                  TextField(
-                    controller: categoryController,
+                  // カテゴリ選択
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedCategory,
                     decoration: const InputDecoration(
                       labelText: "カテゴリ",
                       border: OutlineInputBorder(),
                     ),
+                    items: _categoryOptions
+                        .map((c) => DropdownMenuItem(
+                              value: c,
+                              child: Text(c),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedCategory = value!;
+                      });
+                    },
                   ),
 
                   const SizedBox(height: 10),
@@ -341,7 +246,7 @@ class _CameraPageState extends State<CameraPage> {
 
                   // 季節選択
                   DropdownButtonFormField<String>(
-                    value: selectedSeason,
+                    initialValue: selectedSeason,
                     decoration: const InputDecoration(
                       labelText: "季節",
                       border: OutlineInputBorder(),
@@ -374,10 +279,10 @@ class _CameraPageState extends State<CameraPage> {
 
                   const SizedBox(height: 20),
 
-                  // 保存ボタン
+                  // 保存ボタン（Supabaseへのアップロード＋登録を一括で行う）
                   ElevatedButton(
-                    onPressed: saveClothing,
-                    child: const Text("保存"),
+                    onPressed: isSaving ? null : saveClothing,
+                    child: Text(isSaving ? "保存中..." : "保存"),
                   ),
                 ],
               ],

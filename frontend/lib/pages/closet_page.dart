@@ -140,9 +140,9 @@ class _ClosetPageState
 
           return GestureDetector(
 
-            onTap: () {
+            onTap: () async {
 
-              Navigator.push(
+              final deleted = await Navigator.push(
 
                 context,
 
@@ -154,6 +154,10 @@ class _ClosetPageState
                   ),
                 ),
               );
+
+              if (deleted == true) {
+                loadClothes();
+              }
             },
 
             child: Card(

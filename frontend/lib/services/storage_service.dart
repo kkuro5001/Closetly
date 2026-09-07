@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class StorageService {
   final _supabase = Supabase.instance.client;
-  static const _bucket = 'closety-image';
+  static const _bucket = 'closetly-image';
 
   /// オリジナル画像をアップロード（Web/モバイル共通でバイト列を使用）
   Future<String> uploadOriginal(Uint8List imageBytes, String userId, String fileName) async {
@@ -38,5 +38,10 @@ class StorageService {
     return await _supabase.storage
         .from(_bucket)
         .createSignedUrl(path, expiresIn);
+  }
+
+  /// 画像を削除
+  Future<void> deleteImage(String path) async {
+    await _supabase.storage.from(_bucket).remove([path]);
   }
 }

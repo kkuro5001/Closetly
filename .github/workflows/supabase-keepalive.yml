@@ -1,0 +1,32 @@
+name: Supabase-Keepalive
+
+# Supabase無料プランの自動一時停止（約7日間アクセスなしで停止）を防ぐ
+on:
+  schedule:
+    - cron: "0 0 */3 * *" # 3日ごと 00:00 UTC（日本時間 9:00）
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Query Supabase
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/keepalive?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+          echo "HTTP $status"
+          test "$status" = "200"
+
+      # リポジトリに60日間動きがないとscheduleが無効化されるため、定期的に有効化し直す
+      - name: Keep workflow enabled
+        run: |
+          curl -s -f -X PUT \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/supabase-keepalive.yml/enable"

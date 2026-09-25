@@ -7,47 +7,48 @@ on:
       - completed
 
 jobs:
-  deploy-go:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on:
-      - self-hosted
-      - go
+  # Go/Pythonは現在未使用のため無効化（再開時はコメントを外す）
+  # deploy-go:
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # runs-on:
+      # - self-hosted
+      # - go
 
-    steps:
-      - name: Deploy Go
-        run: |
-          docker pull kkuro5001/closetly-go:latest
+    # steps:
+      # - name: Deploy Go
+        # run: |
+          # docker pull kkuro5001/closetly-go:latest
 
-          docker stop closetly-go || true
-          docker rm closetly-go || true
+          # docker stop closetly-go || true
+          # docker rm closetly-go || true
 
-          docker run -d \
-            --name closetly-go \
-            --security-opt apparmor=unconfined \
-            -p 8080:8080 \
-            -e PYTHON_API_URL=http://192.168.11.37:8000 \
-            --restart unless-stopped \
-            kkuro5001/closetly-go:latest
+          # docker run -d \
+            # --name closetly-go \
+            # --security-opt apparmor=unconfined \
+            # -p 8080:8080 \
+            # -e PYTHON_API_URL=http://192.168.11.37:8000 \
+            # --restart unless-stopped \
+            # kkuro5001/closetly-go:latest
 
-  deploy-python:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on:
-      - self-hosted
-      - python
+  # deploy-python:
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # runs-on:
+      # - self-hosted
+      # - python
 
-    steps:
-      - name: Deploy Python
-        run: |
-          docker pull kkuro5001/closetly-python:latest
+    # steps:
+      # - name: Deploy Python
+        # run: |
+          # docker pull kkuro5001/closetly-python:latest
 
-          docker stop closetly-python || true
-          docker rm closetly-python || true
+          # docker stop closetly-python || true
+          # docker rm closetly-python || true
 
-          docker run -d \
-            --name closetly-python \
-            -p 8000:8000 \
-            --restart unless-stopped \
-            kkuro5001/closetly-python:latest
+          # docker run -d \
+            # --name closetly-python \
+            # -p 8000:8000 \
+            # --restart unless-stopped \
+            # kkuro5001/closetly-python:latest
 
   deploy-frontend:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}

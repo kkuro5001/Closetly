@@ -122,9 +122,10 @@ class _ClosetPageState
         itemCount: clothes.length,
 
         gridDelegate:
-            const SliverGridDelegateWithFixedCrossAxisCount(
+            const SliverGridDelegateWithMaxCrossAxisExtent(
 
-          crossAxisCount: 2,
+          // 1枚の最大幅。スマホ幅では2列、Webでは画面幅に応じて列が増える
+          maxCrossAxisExtent: 200,
 
           crossAxisSpacing: 12,
 

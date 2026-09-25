@@ -13,21 +13,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
+      # Go/Pythonは現在未使用のため無効化（再開時はコメントを外す）
+      # - uses: actions/setup-go@v5
+        # with:
+          # go-version: '1.22'
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      # - uses: actions/setup-python@v5
+        # with:
+          # python-version: '3.12'
 
-      - name: Test Go
-        working-directory: Go
-        run: go test ./...
+      # - name: Test Go
+        # working-directory: Go
+        # run: go test ./...
 
-      - name: Test Python
-        working-directory: Python
-        run: python -m compileall .
+      # - name: Test Python
+        # working-directory: Python
+        # run: python -m compileall .
 
       - uses: docker/login-action@v3
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
@@ -35,33 +36,34 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Go
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        run: |
-          docker build \
-            -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:latest" \
-            -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}" \
-            ./Go
+      # Go/Pythonは現在未使用のため無効化（再開時はコメントを外す）
+      # - name: Build Go
+        # if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        # run: |
+          # docker build \
+            # -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:latest" \
+            # -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}" \
+            # ./Go
 
-      - name: Push Go
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        run: |
-          docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:latest"
-          docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}"
+      # - name: Push Go
+        # if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        # run: |
+          # docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:latest"
+          # docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-go:${{ github.sha }}"
 
-      - name: Build Python
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        run: |
-          docker build \
-            -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:latest" \
-            -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}" \
-            ./Python
+      # - name: Build Python
+        # if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        # run: |
+          # docker build \
+            # -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:latest" \
+            # -t "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}" \
+            # ./Python
 
-      - name: Push Python
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        run: |
-          docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:latest"
-          docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}"
+      # - name: Push Python
+        # if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        # run: |
+          # docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:latest"
+          # docker push "${{ secrets.DOCKERHUB_USERNAME }}/closetly-python:${{ github.sha }}"
 
 
       - name: Build Frontend

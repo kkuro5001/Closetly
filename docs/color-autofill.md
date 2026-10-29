@@ -29,8 +29,10 @@ master へマージする際は feature/keep-supabase 側のコミットも一�
 - 案A: nginx で `/api` を Go にプロキシして同一オリジンにする。CORS 不要・mixed-content も避けやすいが、
   フロントのコンテナ構成、CD の `docker run`(単体コンテナ起動)、nginx 設定の追加が必要で変更範囲が大きい。
 - 案B (採用): Go に gin の自前ミドルウェアで CORS を付ける。依存追加なし・数十行で済み、ローカル開発 (`flutter run -d chrome`) でも同じ動きになる。
-- 現状 `Access-Control-Allow-Origin: *`。認証クッキーは使わず `Content-Type` のみ許可しているので `*` で動くが、
-  本番では許可オリジンを絞ることを推奨(未対応、下記「未解決事項」)。
+- 許可オリジンは環境変数 `CORS_ALLOWED_ORIGINS`(カンマ区切り)で指定し、一致したときだけ `Access-Control-Allow-Origin` にそのオリジンを返す。
+  CD では `https://closetly.kkuro.com` を渡している。未設定のときはローカル開発用に `localhost` / `127.0.0.1`(ポートは問わない)だけを許可する。
+  許可外のオリジンからのプリフライトは 403。`Origin` ヘッダーのないリクエスト(スマホのネイティブアプリや curl)は CORS の対象外なのでそのまま通る。
+  (以前は `*` で全オリジンを許可していた)
 - 許可: メソッド `POST, GET, OPTIONS`、ヘッダ `Content-Type`。OPTIONS は `AbortWithStatus(204)` で本処理に入れず返す。
 
 ### URL は `--dart-define` (`API_BASE_URL`)

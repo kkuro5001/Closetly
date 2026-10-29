@@ -188,8 +188,55 @@
    - 原因: Cloudflare が `main.dart.js` をキャッシュしていた(`cf-cache-status: HIT`, `Cache-Control: max-age=14400` = 最大4時間)。
    - キャッシュを避けて (`?v=...` 付きで) 取得すると、新しい版 (`closetly-go.kkuro.com` を呼ぶ) が配信されていることを確認。
    - 対処: Cloudflare のダッシュボードでキャッシュを削除 (Caching → Configuration → Purge Everything) するか、最大4時間待つ。
-   - 今後の改善案: nginx で `index.html` / `main.dart.js` / `flutter_service_worker.js` に `Cache-Control: no-cache` を付けると、デプロイ直後から新しい版が届くようになる。
+   - 今後の改善案 → 下記「キャッシュの設定」で対応。
 
 ### 本番での最終確認 (2026-10-29)
 - ユーザーが Cloudflare のダッシュボードで「すべてをパージ」を実行。
 - `https://closetly.kkuro.com` を開き、写真を選ぶと色欄に色が自動で入ることをユーザーが確認。**本番で色の自動入力が動作。**
+
+## キャッシュの設定 (2026-10-29)
+### 目的
+デプロイのたびに Cloudflare のキャッシュを手で削除しなくても、新しいアプリがすぐ届くようにする。
+
+### 調べたこと(本番のレスポンスヘッダー)
+| ファイル | Cache-Control | cf-cache-status |
+| --- | --- | --- |
+| `/`(index.html) | なし | `DYNAMIC`(HTML は Cloudflare がもともとキャッシュしない) |
+| `main.dart.js` / `flutter_service_worker.js` | `max-age=14400`(4時間) | `HIT` / `MISS` |
+
+- nginx は既定の設定で Cache-Control を付けておらず、Cloudflare が `.js` を最大4時間キャッシュしていた。
+- 古い `main.dart.js` が残ると、`index.html` が新しくても古いアプリが動いてしまう。
+
+### 変更
+- `frontend/nginx.conf` を新規作成し、`frontend/Dockerfile` で `/etc/nginx/conf.d/default.conf` にコピーする。
+  - アプリの入り口になるファイル(`/`, `index.html`, `main.dart.js`, `flutter.js`, `flutter_bootstrap.js`,
+    `flutter_service_worker.js`, `version.json`, `manifest.json`)に `Cache-Control: no-cache, no-store, must-revalidate` を付ける。
+    Cloudflare はオリジンの `no-cache` / `no-store` に従うので、エッジに古いファイルを残さなくなる。
+  - 画像・フォント・`assets/` などはこれまでどおりキャッシュさせる(変更が少なく、毎回取り直すと遅くなるため)。
+  - 存在しないパスは `index.html` を返す (SPA のフォールバック)。
+
+### 確認
+- `nginx:alpine` にダミーファイルと `nginx.conf` をマウントして確認:
+  - `nginx -t` 成功
+  - 入り口のファイルと `/` には `Cache-Control: no-cache, no-store, must-revalidate` が付く
+  - `favicon.png` / `assets/a.txt` には付かない
+  - `/some/route` などの存在しないパスは `index.html`(no-cache 付き)を返す
+- フロントのイメージ全体のビルド (Flutter) はローカルでは行わず、CI のビルドに任せた(時間がかかるため)。
+- 本番への反映後に、`main.dart.js` のヘッダーが `no-cache` になり `cf-cache-status` が `HIT` にならないことを確認する。
+
+### 気をつける点
+- Cloudflare 側で「Cache Everything」のようなページルールや、エッジのキャッシュ時間を固定する設定を入れると、
+  オリジンの指定より Cloudflare の設定が優先されることがある。その場合はそちらも見直す。
+- 今回の nginx.conf を入れる前に Cloudflare にキャッシュされたファイルは、反映直後にもう一度だけパージが必要になる可能性がある
+  (現在はパージ済みなので、次のデプロイから効く想定)。
+
+### 作業中に起きた問題
+1. **別のブランチにコミットしてしまった**
+   - 作業の途中で、メインのフォルダが別の作業により `feature/cd-image-prune` ブランチ(master から作成、`cd.yml` と `Go/Dockerfile` を編集中)に切り替わっていた。
+   - それに気づかず、キャッシュ設定のコミットを `feature/cd-image-prune` に作ってしまった(push はしていない)。
+   - 対処: `git reset --keep HEAD~1` で自分のコミットだけを取り消した(`--keep` はコミットに含まれないローカルの変更を残す。
+     編集中の `cd.yml` / `Go/Dockerfile` には触れていない)。そのうえで、編集中の作業を邪魔しないよう別の worktree で
+     `feature/keep-supabase` をチェックアウトし、同じ変更を入れ直してコミット・push した。
+   - 教訓: コミットや push の前に `git status -sb` で今いるブランチを確認する。
+2. **docs の追記に失敗した**: Windows の Python から Git Bash の `/tmp` のパスが見えず、ファイルを読めなかった。
+   scratchpad のフォルダ(Windows のパス)を使ってやり直した。

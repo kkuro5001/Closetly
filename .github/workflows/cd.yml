@@ -29,6 +29,9 @@ jobs:
             --restart unless-stopped \
             kkuro5001/closetly-go:latest
 
+          # 古いイメージが溜まってディスクが埋まるのを防ぐ
+          docker image prune -f
+
   deploy-python:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on:
@@ -48,6 +51,9 @@ jobs:
             -p 8000:8000 \
             --restart unless-stopped \
             kkuro5001/closetly-python:latest
+
+          # 古いイメージが溜まってディスクが埋まるのを防ぐ
+          docker image prune -f
 
   deploy-frontend:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -83,3 +89,6 @@ jobs:
             --security-opt apparmor=unconfined \
             --restart unless-stopped \
             kkuro5001/closetly-frontend:latest
+
+          # 古いイメージが溜まってディスクが埋まるのを防ぐ
+          docker image prune -f

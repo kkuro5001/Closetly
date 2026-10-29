@@ -267,3 +267,8 @@
   - すぐ消したい場合は Cloudflare の「カスタムパージ」で `https://closetly.kkuro.com/flutter_bootstrap.js` を指定する。
 - 未対応の改善案: `no-store` を外して `no-cache` だけにすると、ブラウザが「変更なし (304)」の確認だけで済み、
   毎回 `main.dart.js`(約 2.3MB、圧縮転送で約 0.8MB)を丸ごとダウンロードしなくて済む(Cloudflare は `no-cache` でも保存しないので効果は同じ)。
+
+### 補足: 再実行時の `deploy-go` の失敗について (2026-10-29 追記)
+- PR #16 (`feature/cd-image-prune`) で CLAUDE.md に「pull のたびに古いイメージが残り、Go のホストの 20GB のディスクがいっぱいになって runner がオフラインになった」と記録された。
+- 上の「再実行後の CD で `deploy-go` が失敗」(ジョブの途中で runner 情報が空になり、ログも残らなかった)は、このディスク不足で Go の runner が落ちたのが原因だった可能性が高い。
+- PR #16 で各デプロイの最後に `docker image prune -f` が入ったので、同じ失敗は起きにくくなっている。

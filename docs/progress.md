@@ -115,10 +115,19 @@
 - 原因: **Supabase のプロジェクトが一時停止していた**。プロジェクトのドメイン
   `ensmryjkvsjkzoqotqlk.supabase.co` が DNS で「Non-existent domain」になっていた
   (`supabase.com` や `github.com` には接続できたので手元のネットワークの問題ではない)。
-- さらに、一時停止を防ぐはずの `.github/workflows/supabase-keepalive.yml` が **master ブランチに入っていない**ことがわかった。
-  GitHub Actions の `schedule` は既定ブランチ (master) にあるワークフローしか実行しないため、一度も動いていなかったと考えられる。
+- ~~一時停止を防ぐ `supabase-keepalive.yml` が master に入っていない~~ → **これは誤りだった(訂正)**。
+  ローカルの `master` が古いままだったこと、Git Bash で `git show origin/master:パス` がパス変換されて失敗していたことが原因で、
+  「入っていない」と誤って判断した。`git ls-tree origin/master .github/workflows/` で確認すると master に入っている。
+- GitHub API で keepalive の実行履歴を確認した結果:
+  | 実行日時 (UTC) | 契機 | 結果 |
+  | --- | --- | --- |
+  | 2026-10-15 | 手動 | 成功 |
+  | 2026-10-16 / 19 / 22 / 25 | 定期 | 成功 |
+  | 2026-10-28 | 定期 | **失敗**(プロジェクトがすでに停止していたためと思われる) |
+- keepalive は3日おきに成功していたのに停止した理由は**未解明**。失敗時の詳細ログは GitHub にログインしないと見られないため未確認。
+  考えられる可能性: REST API へのアクセスだけでは Supabase の「利用あり」とみなされない / 無料プランの別の停止条件 / 手動停止。
+  GitHub Actions の画面で 10/28 の実行ログと、Supabase ダッシュボードの停止理由を確認する必要がある。
 - 対処: ユーザーが Supabase のダッシュボードからプロジェクトを再開 → `/auth/v1/health` が 200 になったのを確認してからログインし直して成功。
-- 今後: `feature/keep-supabase` を master にマージすれば keepalive が動き始める。
 - 外部サービス (本番 Supabase) へのログインとファイル選択ダイアログの操作は、Claude からは行わずユーザーに操作してもらった。
 
 ## 残っていること

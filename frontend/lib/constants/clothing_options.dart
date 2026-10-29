@@ -20,3 +20,12 @@ const seasonOptions = [
   "冬",
   "オールシーズン",
 ];
+
+// 選択肢に現在の値が含まれていない場合(古いデータなど)、
+// 編集時に値が勝手に変わらないよう先頭に追加した一覧を返す
+List<String> optionsWithCurrent(List<String> options, String current) {
+  if (options.contains(current)) {
+    return options;
+  }
+  return [current, ...options];
+}

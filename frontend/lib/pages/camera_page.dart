@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/storage_service.dart';
 import '../services/clothing_service.dart';
+import '../services/color_service.dart';
 import '../models/clothing.dart';
 
 const _categoryOptions = [
@@ -40,6 +41,14 @@ class _CameraPageState extends State<CameraPage> {
   String? pickedFileName;
 
   bool isSaving = false;
+
+  final colorService = ColorService();
+
+  // 色の自動解析中かどうか
+  bool isAnalyzingColor = false;
+
+  // 最新の色解析リクエスト番号(古い結果の上書き防止用)
+  int _colorRequestId = 0;
 
   // 入力用コントローラー
   final colorController = TextEditingController();
@@ -80,6 +89,59 @@ class _CameraPageState extends State<CameraPage> {
 
     debugPrint("画像表示更新完了");
     debugPrint("===== CAMERA END =====");
+
+    // 保存処理とは独立して色を自動入力する(失敗しても保存は可能)
+    await _autofillColor(imageBytes);
+  }
+
+  // 画像から色を解析して色欄に入れる
+  Future<void> _autofillColor(Uint8List imageBytes) async {
+
+    // 解析中に別の写真が選ばれた場合に古い結果で上書きしないための番号
+    final requestId = ++_colorRequestId;
+
+    // 解析中にユーザーが色を手入力した場合はそちらを優先するため、開始時の値を覚えておく
+    final textAtStart = colorController.text;
+
+    debugPrint("===== 色解析開始 (#$requestId) =====");
+
+    setState(() {
+      isAnalyzingColor = true;
+    });
+
+    try {
+
+      final color = await colorService.analyzeColor(imageBytes);
+
+      // 画面破棄済み、または新しい写真が選ばれていたら結果を捨てる
+      if (!mounted || requestId != _colorRequestId) {
+        debugPrint("色解析結果を破棄 (#$requestId)");
+        return;
+      }
+
+      if (colorController.text != textAtStart) {
+        debugPrint("手入力済みのため自動入力しない (#$requestId)");
+      } else if (color != null) {
+        colorController.text = color;
+        debugPrint("色を自動入力: $color");
+      }
+
+    } catch (e, stackTrace) {
+
+      // 失敗しても色欄はそのまま(手入力・保存は引き続き可能)
+      debugPrint("===== 色解析エラー =====");
+      debugPrint(e.toString());
+      debugPrint(stackTrace.toString());
+
+    } finally {
+      if (mounted && requestId == _colorRequestId) {
+        setState(() {
+          isAnalyzingColor = false;
+        });
+      }
+    }
+
+    debugPrint("===== 色解析終了 (#$requestId) =====");
   }
 
   // 画像をSupabase Storageへアップロードし、服の情報をSupabaseへ保存
@@ -236,9 +298,22 @@ class _CameraPageState extends State<CameraPage> {
                   // 色入力
                   TextField(
                     controller: colorController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: "色",
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      // 解析中は小さなインジケーターを表示
+                      suffixIcon: isAnalyzingColor
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : null,
                     ),
                   ),
 

@@ -4,6 +4,8 @@ from ultralytics import YOLO
 import cv2
 import numpy as np
 
+from color_analyzer import analyze_color
+
 app = FastAPI()
 
 # YOLOモデル読み込み
@@ -44,6 +46,11 @@ async def predict(request: Request):
     print("画像デコード成功")
     print("画像shape:", img.shape)
 
+    # ---------------- OpenCVで色解析
+    color_result = analyze_color(img)
+
+    print("色解析結果:", color_result)
+
     # ---------------- YOLO予測
     print("YOLO推論開始")
 
@@ -83,7 +90,7 @@ async def predict(request: Request):
 
         return {
             "category": "unknown",
-            "color": "unknown",
+            **color_result,
             "suggestion": "no clothes detected"
         }
 
@@ -96,7 +103,7 @@ async def predict(request: Request):
 
     response = {
         "category": category,
-        "color": "black",
+        **color_result,
         "suggestion": "white pants recommended"
     }
 

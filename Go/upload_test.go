@@ -47,8 +47,13 @@ func TestUploadRelaysJSON(t *testing.T) {
 	defer fake.Close()
 	t.Setenv("PYTHON_API_URL", fake.URL)
 
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://closetly.example.com")
+
+	req := newUploadRequest(t, "image")
+	req.Header.Set("Origin", "https://closetly.example.com")
+
 	rec := httptest.NewRecorder()
-	setupRouter().ServeHTTP(rec, newUploadRequest(t, "image"))
+	setupRouter().ServeHTTP(rec, req)
 
 	if rec.Code != 200 {
 		t.Fatalf("status = %d, want 200", rec.Code)
@@ -56,8 +61,8 @@ func TestUploadRelaysJSON(t *testing.T) {
 	if rec.Body.String() != fakeResponse {
 		t.Errorf("body = %s, want %s", rec.Body.String(), fakeResponse)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
-		t.Errorf("Allow-Origin = %q, want *", got)
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://closetly.example.com" {
+		t.Errorf("Allow-Origin = %q, want https://closetly.example.com", got)
 	}
 }
 
@@ -72,24 +77,66 @@ func TestUploadMissingImage(t *testing.T) {
 	}
 }
 
-func TestCORSPreflight(t *testing.T) {
+// プリフライトのリクエストを送ってレスポンスを返す
+func preflight(t *testing.T, origin string) *httptest.ResponseRecorder {
+	t.Helper()
+
 	req := httptest.NewRequest(http.MethodOptions, "/upload", nil)
-	req.Header.Set("Origin", "http://localhost:5000")
+	req.Header.Set("Origin", origin)
 	req.Header.Set("Access-Control-Request-Method", "POST")
 
 	rec := httptest.NewRecorder()
 	setupRouter().ServeHTTP(rec, req)
+	return rec
+}
+
+func TestCORSPreflight(t *testing.T) {
+	// 許可リスト未設定ならlocalhostはポートに関係なく通す
+	t.Setenv("CORS_ALLOWED_ORIGINS", "")
+
+	rec := preflight(t, "http://localhost:5000")
 
 	if rec.Code != 204 {
 		t.Fatalf("status = %d, want 204", rec.Code)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
-		t.Errorf("Allow-Origin = %q, want *", got)
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5000" {
+		t.Errorf("Allow-Origin = %q, want http://localhost:5000", got)
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, "POST") {
 		t.Errorf("Allow-Methods = %q, POST を含むべき", got)
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Content-Type") {
 		t.Errorf("Allow-Headers = %q, Content-Type を含むべき", got)
+	}
+}
+
+func TestCORSPreflightRejectsOtherOrigin(t *testing.T) {
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://closetly.example.com")
+
+	// 許可リストを設定したらlocalhostも含めてリスト外は通さない
+	for _, origin := range []string{"https://evil.example.com", "http://localhost:5000"} {
+		rec := preflight(t, origin)
+
+		if rec.Code != 403 {
+			t.Errorf("%s: status = %d, want 403", origin, rec.Code)
+		}
+		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+			t.Errorf("%s: Allow-Origin = %q, want empty", origin, got)
+		}
+	}
+}
+
+func TestCORSAllowsListedOrigins(t *testing.T) {
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://closetly.example.com, http://localhost")
+
+	for _, origin := range []string{"https://closetly.example.com", "http://localhost"} {
+		rec := preflight(t, origin)
+
+		if rec.Code != 204 {
+			t.Errorf("%s: status = %d, want 204", origin, rec.Code)
+		}
+		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != origin {
+			t.Errorf("%s: Allow-Origin = %q, want %s", origin, got, origin)
+		}
 	}
 }

@@ -1,4 +1,4 @@
-# 作業状況メモ (2026-10-29 時点)
+# 作業状況メモ (2026-10-29 時点・一時停止中)
 
 「写真から服の色を解析して色欄に自動入力する」機能の進み具合。
 設計や問題の詳細は [color-autofill.md](color-autofill.md) を参照。
@@ -46,3 +46,28 @@
 - フロントを HTTPS で配信する場合、Go も HTTPS にしないとブラウザに通信を止められる(mixed-content)
 - 色名の判定しきい値は実際の服の写真でまだ検証していない
 - CORS が `*`(全オリジン許可)なので、本番では許可するオリジンを絞ることを検討
+
+## 一時停止 (2026-10-29)
+ユーザーの指示で、Docker での通し確認の途中で作業を止めた。
+
+### 止めた時点の状態
+- Python イメージのビルドは約30分経過した時点で中断した(完了していない)。Go イメージはビルド済み。
+  Python の依存インストールは Dockerfile の1つの `RUN` で行っているため、再開するとそのステップは最初からやり直しになる。
+- `docker compose down` 済み。起動中のコンテナはない。
+- worktree の変更はローカルの `feature/keep-supabase` に取り込み済み(fast-forward)。**GitHub へは未 push**。
+
+### 再開手順
+メインのフォルダ (`C:\Personal_production\Closetly`) で以下を行う。
+1. Docker Desktop を起動する
+2. `docker compose up --build -d go python`(Python のビルドに30分以上かかる見込み)
+3. 動作確認
+   ```
+   curl -F image=@Go/sample.jpg http://localhost:8080/upload
+   curl -i -X OPTIONS http://localhost:8080/upload -H "Origin: http://localhost" -H "Access-Control-Request-Method: POST"
+   ```
+   - 1つ目: `color` に色名が入った JSON が返ること
+   - 2つ目: `204` と `Access-Control-Allow-Origin: *` が返ること
+4. `docker compose down`
+5. 結果をこのファイルと `color-autofill.md` に追記して commit
+6. `git push origin feature/keep-supabase`
+7. 後片付け: worktree を削除する (`git worktree remove .claude/worktrees/agent-a14bcde4850f99738`、ブランチ `worktree-agent-a14bcde4850f99738` も削除)

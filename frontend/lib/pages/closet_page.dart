@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/clothing.dart';
+import '../utils/closet_filter.dart';
 import '../services/clothing_service.dart';
 import '../services/storage_service.dart';
 import 'clothing_detail_page.dart';
@@ -19,6 +20,9 @@ class _ClosetPageState
   List<Clothing> clothes = [];
   final storageService = StorageService();
   final clothingService = ClothingService();
+
+  // 絞り込み・並び替え条件(詳細ページから戻っても State が残るので保持される)
+  ClosetFilter filter = const ClosetFilter();
 
   bool isLoading = true;
   String? errorMessage;
@@ -42,6 +46,7 @@ class _ClosetPageState
 
       setState(() {
         clothes = result;
+        filter = _pruneFilter(filter, result);
         isLoading = false;
       });
 
@@ -56,6 +61,151 @@ class _ClosetPageState
         isLoading = false;
       });
     }
+  }
+
+  // 削除などで存在しなくなった値が選択されたままにならないよう取り除く
+  ClosetFilter _pruneFilter(ClosetFilter f, List<Clothing> items) {
+    final cats = availableCategories(items).toSet();
+    final seasons = availableSeasons(items).toSet();
+    final colors = availableColors(items).toSet();
+    final pruned = f.copyWith(
+      categories: f.categories.intersection(cats),
+      seasons: f.seasons.intersection(seasons),
+      colors: f.colors.intersection(colors),
+    );
+    debugPrint(
+      "絞り込み条件を更新: カテゴリ=${pruned.categories} 季節=${pruned.seasons} 色=${pruned.colors} 並び=${pruned.sort}",
+    );
+    return pruned;
+  }
+
+  // 選択肢の追加/削除(複数選択)
+  Set<String> _toggle(Set<String> current, String value, bool selected) {
+    final next = {...current};
+    if (selected) {
+      next.add(value);
+    } else {
+      next.remove(value);
+    }
+    return next;
+  }
+
+  Widget _buildChipRow(
+    String label,
+    List<String> options,
+    Set<String> selected,
+    void Function(String value, bool selected) onChanged,
+  ) {
+    if (options.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 40,
+            child: Text(label, style: const TextStyle(color: Colors.grey)),
+          ),
+          Expanded(
+            child: SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  for (final option in options)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(option),
+                        selected: selected.contains(option),
+                        onSelected: (value) => onChanged(option, value),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Column(
+        children: [
+          _buildChipRow(
+            "種類",
+            availableCategories(clothes),
+            filter.categories,
+            (v, sel) => setState(() {
+              filter = filter.copyWith(
+                categories: _toggle(filter.categories, v, sel),
+              );
+            }),
+          ),
+          _buildChipRow(
+            "季節",
+            availableSeasons(clothes),
+            filter.seasons,
+            (v, sel) => setState(() {
+              filter = filter.copyWith(
+                seasons: _toggle(filter.seasons, v, sel),
+              );
+            }),
+          ),
+          _buildChipRow(
+            "色",
+            availableColors(clothes),
+            filter.colors,
+            (v, sel) => setState(() {
+              filter = filter.copyWith(
+                colors: _toggle(filter.colors, v, sel),
+              );
+            }),
+          ),
+          Row(
+            children: [
+              const Text("並び順", style: TextStyle(color: Colors.grey)),
+              const SizedBox(width: 8),
+              DropdownButton<ClosetSort>(
+                value: filter.sort,
+                underline: const SizedBox.shrink(),
+                items: const [
+                  DropdownMenuItem(
+                    value: ClosetSort.newest,
+                    child: Text("新しい順"),
+                  ),
+                  DropdownMenuItem(
+                    value: ClosetSort.oldest,
+                    child: Text("古い順"),
+                  ),
+                  DropdownMenuItem(
+                    value: ClosetSort.category,
+                    child: Text("カテゴリ順"),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    filter = filter.copyWith(sort: value);
+                  });
+                },
+              ),
+              const Spacer(),
+              if (filter.hasActiveFilter)
+                TextButton(
+                  onPressed: () => setState(() {
+                    filter = filter.clearFilters();
+                  }),
+                  child: const Text("絞り込みを解除"),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -112,6 +262,43 @@ class _ClosetPageState
       );
     }
 
+    final visible = filter.apply(clothes);
+
+    return Column(
+      children: [
+        _buildFilterBar(),
+        Expanded(
+          child: visible.isEmpty
+              ? _buildNoMatch()
+              : _buildGrid(visible),
+        ),
+      ],
+    );
+  }
+
+  // 条件に合う服が0件のときの表示(服が1着もない場合とは別)
+  Widget _buildNoMatch() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.search_off, size: 48, color: Colors.grey),
+          const SizedBox(height: 12),
+          const Text("条件に合う服がありません"),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: () => setState(() {
+              filter = filter.clearFilters();
+            }),
+            child: const Text("絞り込みを解除"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGrid(List<Clothing> visible) {
+
     return RefreshIndicator(
       onRefresh: loadClothes,
       child: GridView.builder(
@@ -119,7 +306,7 @@ class _ClosetPageState
         padding:
             const EdgeInsets.all(12),
 
-        itemCount: clothes.length,
+        itemCount: visible.length,
 
         gridDelegate:
             const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -137,7 +324,7 @@ class _ClosetPageState
         itemBuilder: (context, index) {
 
           final clothing =
-              clothes[index];
+              visible[index];
 
           return GestureDetector(
 

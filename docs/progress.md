@@ -1,4 +1,4 @@
-# 作業状況メモ (2026-10-29 完了)
+# 作業状況メモ (2026-10-29 完了・本番で動作確認済み)
 
 「写真から服の色を解析して色欄に自動入力する」機能の進み具合。
 設計や問題の詳細は [color-autofill.md](color-autofill.md) を参照。
@@ -133,8 +133,8 @@
 - 外部サービス (本番 Supabase) へのログインとファイル選択ダイアログの操作は、Claude からは行わずユーザーに操作してもらった。
 
 ## 残っていること
-- master へのマージ(プルリクエスト #14 作成済み、CI 成功): https://github.com/kkuro5001/Closetly/pull/14
-- 本番用に GitHub の `vars.API_BASE_URL` を設定
+- ~~master へのマージ~~ → PR #14 でマージ済み
+- ~~本番用に GitHub の `vars.API_BASE_URL` を設定~~ → 設定済み
 - スマホ実機での確認
 
 ## プルリクエスト作成 (2026-10-29)
@@ -189,3 +189,7 @@
    - キャッシュを避けて (`?v=...` 付きで) 取得すると、新しい版 (`closetly-go.kkuro.com` を呼ぶ) が配信されていることを確認。
    - 対処: Cloudflare のダッシュボードでキャッシュを削除 (Caching → Configuration → Purge Everything) するか、最大4時間待つ。
    - 今後の改善案: nginx で `index.html` / `main.dart.js` / `flutter_service_worker.js` に `Cache-Control: no-cache` を付けると、デプロイ直後から新しい版が届くようになる。
+
+### 本番での最終確認 (2026-10-29)
+- ユーザーが Cloudflare のダッシュボードで「すべてをパージ」を実行。
+- `https://closetly.kkuro.com` を開き、写真を選ぶと色欄に色が自動で入ることをユーザーが確認。**本番で色の自動入力が動作。**

@@ -8,7 +8,11 @@ on:
 
 jobs:
   deploy-go:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # PRのCIでも動いてしまうので、masterへのpushで走ったCIが成功したときだけデプロイする
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
     runs-on:
       - self-hosted
       - go
@@ -26,6 +30,7 @@ jobs:
             --security-opt apparmor=unconfined \
             -p 8080:8080 \
             -e PYTHON_API_URL=http://192.168.11.37:8000 \
+            -e CORS_ALLOWED_ORIGINS=https://closetly.kkuro.com \
             --restart unless-stopped \
             kkuro5001/closetly-go:latest
 
@@ -33,7 +38,11 @@ jobs:
           docker image prune -f
 
   deploy-python:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # PRのCIでも動いてしまうので、masterへのpushで走ったCIが成功したときだけデプロイする
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
     runs-on:
       - self-hosted
       - python
@@ -56,7 +65,11 @@ jobs:
           docker image prune -f
 
   deploy-frontend:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # PRのCIでも動いてしまうので、masterへのpushで走ったCIが成功したときだけデプロイする
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
     runs-on:
       - self-hosted
       - frontend

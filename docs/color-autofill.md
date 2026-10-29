@@ -123,6 +123,27 @@ master へマージする際は feature/keep-supabase 側のコミットも一�
 3. **HSV のしきい値は実写真で未検証**: `color_analyzer.py` の色名境界は実際の服写真で十分に検証していない。照明・背景次第で誤判定しうる。
    ユーザーが編集できる前提のため致命的ではないが、精度評価が必要。
 4. **CORS が `*`**: 本番では許可オリジンの限定を検討。
-5. **同一写真で手入力後に結果が届くと上書きされる**(上記 stale guard の制限)。
+5. ~~同一写真で手入力後に結果が届くと上書きされる~~ → 対応済み(下記「レビューでの修正」参照)。
 6. **解析負荷/コスト**: 現状 Python は YOLO 推論も毎回実行する(色だけなら不要)。レスポンス遅延が 15 秒を超えるとタイムアウトで諦める。
 7. 既存の `flutter analyze` 指摘 (`lib/main.dart`) は未対応。
+
+## レビューでの修正と再検証(Opus によるレビュー)
+### 修正
+- 解析中にユーザーが色を手入力した場合、あとから届いた解析結果で上書きされる問題があった。
+  解析開始時の色欄の値を覚えておき、結果が届いた時点で値が変わっていれば自動入力しないようにした
+  (`camera_page.dart` の `_autofillColor`)。手入力を常に優先する方針。
+
+### 再実行したテスト
+- `go vet ./...` / `go test -count=1 ./...` → `ok`
+- `python -m compileall -q .` → 成功
+- `flutter analyze` → 2件(どちらも既存の `lib/main.dart`、今回の変更とは無関係)
+- `flutter test` → 5件すべて成功
+- CI/CD・docker-compose の YAML を `yaml.safe_load` で読み込み、構文エラーがないことを確認
+  (ci: `test-and-build` / cd: `deploy-go`, `deploy-python`, `deploy-frontend`)
+
+### 遭遇した問題
+- `flutter pub get` を実行すると `frontend/linux|macos|windows` の自動生成ファイルが書き換わる。
+  今回の変更とは無関係なので `git checkout` で元に戻してからコミットしている。
+- Docker Desktop が起動していなかったため起動した。
+- Python イメージ(ultralytics / torch を含む)のビルドに10分以上かかり、ツールのタイムアウトを超えた。
+  バックグラウンドで継続中。完了後に `curl` で `/upload` と CORS プリフライトを確認する予定。

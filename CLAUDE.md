@@ -90,6 +90,8 @@ Table: `public.clothes` (schema/policies in `supabase/clothes_table.sql`) — `i
 
 `API_BASE_URL` must be a browser-reachable address of the Go server. It is baked into the web build (`frontend/Dockerfile` `ARG API_BASE_URL` -> `--dart-define`); CI passes the repo variable `vars.API_BASE_URL` (fallback `http://localhost:8080`). Details and open issues: `docs/color-autofill.md`.
 
+The frontend image serves the web build with nginx using `frontend/nginx.conf`: the app's entry files (`/`, `index.html`, `main.dart.js`, `flutter_bootstrap.js`, `flutter_service_worker.js`, etc.) are sent with `Cache-Control: no-cache, no-store, must-revalidate` so Cloudflare (which fronts `closetly.kkuro.com`) doesn't keep serving an old build after a deploy; other static assets keep default caching. See `docs/progress.md` (キャッシュの設定).
+
 ### CI/CD
 - `.github/workflows/ci.yml`: on push/PR to `master`, runs `go test ./...` and `python -m compileall .`, then (on push to `master` only) builds and pushes `kkuro5001/closetly-{go,python,frontend}` Docker images to Docker Hub (the frontend image is built with `--build-arg API_BASE_URL`).
 - `.github/workflows/cd.yml`: triggered by a successful CI run; self-hosted runners pull the new images and restart the `closetly-go`/`closetly-python`/`closetly-frontend` containers. The Go container is started with `PYTHON_API_URL` pointing at the Python container's LAN address.

@@ -23,6 +23,13 @@ for insert
 to authenticated
 with check (user_id = auth.uid());
 
+create policy "服の更新"
+on public.clothes
+for update
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
 create policy "服の削除"
 on public.clothes
 for delete

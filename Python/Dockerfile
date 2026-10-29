@@ -10,13 +10,7 @@ WORKDIR /app
 #先にrequirements.txtをコピーして、依存関係のインストール
 COPY requirements.txt .
 
-# OpenCV / YOLO 用ライブラリ
-RUN apt-get update && apt-get install -y --no-install-recommends\
-    libglib2.0-0 \
-    libgl1 \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
-
+# opencv-python-headlessは必要なライブラリを同梱しているためaptでの追加は不要
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 

@@ -272,3 +272,44 @@
 - PR #16 (`feature/cd-image-prune`) で CLAUDE.md に「pull のたびに古いイメージが残り、Go のホストの 20GB のディスクがいっぱいになって runner がオフラインになった」と記録された。
 - 上の「再実行後の CD で `deploy-go` が失敗」(ジョブの途中で runner 情報が空になり、ログも残らなかった)は、このディスク不足で Go の runner が落ちたのが原因だった可能性が高い。
 - PR #16 で各デプロイの最後に `docker image prune -f` が入ったので、同じ失敗は起きにくくなっている。
+
+## 3つの機能を並行で実装 (2026-10-29)
+ユーザーの依頼: 「服の編集」「クローゼットの絞り込み・並び替え」「ホーム画面の作り込み」を、ブランチと Claude を分けて Sonnet に実装させ、
+終わったものからテスト → push → マージする。
+
+### 進め方
+1. **先に共通化 (PR #19)**: 3つとも「カテゴリ・季節の選択肢」を使うが、`camera_page.dart` の中にしかなかった。
+   各自が別々に切り出すとマージ時に衝突するため、先に `frontend/lib/constants/clothing_options.dart` に切り出して master に入れた。
+2. Sonnet 3人を、それぞれ別の worktree・別のブランチで並行して作業させた。担当以外のファイル(特に他の人のページ)を触らないこと、
+   `CLAUDE.md` と `progress.md` は触らず docs は機能ごとの新しいファイルに書くことを指示して、衝突を避けた。
+3. 終わった順に、Opus がコードを確認 → 最新の master に rebase → `flutter analyze` / `flutter test` → push → PR → CI 成功を確認 → マージ。
+
+| 機能 | ブランチ | PR | docs | テスト(マージ時点) |
+| --- | --- | --- | --- | --- |
+| クローゼットの絞り込み・並び替え | `feature/closet-filter` | #20 | `docs/closet-filter.md` | 19件成功 |
+| ホーム画面 | `feature/home-dashboard` | #21 | `docs/home-dashboard.md` | 38件成功 |
+| 服の編集 | `feature/clothing-edit` | #22 | `docs/clothing-edit.md` | 41件成功 |
+
+- どのブランチも `flutter analyze` は既存の `lib/main.dart` の2件のみで、新しい指摘なし。
+- 3つとも別ファイルを担当させたので、rebase で衝突は起きなかった。
+- 最後の PR #22 のマージ後、master の CI と CD (go / python / frontend) はすべて成功。
+
+### Supabase の update ポリシー
+- 編集機能には `clothes` テーブルの update の RLS ポリシーが必要だった(select / insert / delete しかなかった)。
+- ユーザーの依頼で、手順を案内する専用の Claude Code を新しいターミナルタブで起動した
+  (案内用の指示書をファイルに書き、`wt new-tab ... claude "<指示書を読んで案内して>"` で起動)。案内役は SQL を実行せず、ユーザーが SQL Editor で実行した。
+- ポリシー名と定義は、案内役と実装役の Sonnet で同じになるように揃えた(実装中の Sonnet にメッセージで指定)。
+- RLS で更新が拒否されても Supabase はエラーを返さず 0 件更新になるため、`updateClothing` は `.select()` で結果を受け取り、0 件ならエラーにしている。
+
+### レビューで確認したこと
+- 編集機能の詳細画面は `PopScope(canPop: false)` で戻る操作を受け、編集していれば `true` を返す。
+  削除時の `Navigator.pop(context, true)` は `PopScope` に止められない(`didPop == true` で呼ばれるので二重に戻らない)ことを確認した。
+- 絞り込みは、条件を変えても画像 URL の再署名・再取得が起きないよう、読み込み済みの一覧を画面側で絞り込む方式にした。
+
+### 作業中に起きた問題
+- Sonnet たちから「長いコマンドやヒアドキュメントがサンドボックスで拒否された」との報告があり、ファイル作成や分割したコマンドで対応していた。
+- テストの import はパッケージ名が `frontend`(`package:frontend/...`)である点に注意が必要だった。
+- `flutter pub get` / `flutter test` が `frontend/linux|macos|windows` の自動生成ファイルを書き換えるため、毎回元に戻してからコミットした。
+
+### 未確認
+- 3つとも、ブラウザ・実機での画面確認と、本番の Supabase での編集(更新)の動作は未確認。

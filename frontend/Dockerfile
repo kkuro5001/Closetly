@@ -7,4 +7,6 @@ RUN flutter pub get && flutter build web --release --dart-define=API_BASE_URL=$A
 
 FROM nginx:alpine
 COPY --from=build /app/build/web /usr/share/nginx/html
+# 入り口のファイルをキャッシュさせない設定
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

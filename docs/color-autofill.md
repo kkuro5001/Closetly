@@ -10,7 +10,7 @@ Flutter (camera_page)
   -> ColorService.analyzeColor(bytes)   multipart field "image"
   -> Go  POST {API_BASE_URL}/upload     (CORS ミドルウェア付き)
   -> Python POST {PYTHON_API_URL}/predict  (生バイト)
-  <- JSON {"category","color":"ネイビー","color_en","hex","ratio","suggestion"}
+  <- JSON {"color":"ネイビー","color_en","hex","ratio"}
   <- Go が JSON をそのまま中継
   -> colorController.text = color  (編集可能なまま)
 ```
@@ -124,7 +124,7 @@ master へマージする際は feature/keep-supabase 側のコミットも一�
    ユーザーが編集できる前提のため致命的ではないが、精度評価が必要。
 4. **CORS が `*`**: 本番では許可オリジンの限定を検討。
 5. ~~同一写真で手入力後に結果が届くと上書きされる~~ → 対応済み(下記「レビューでの修正」参照)。
-6. **解析負荷/コスト**: 現状 Python は YOLO 推論も毎回実行する(色だけなら不要)。レスポンス遅延が 15 秒を超えるとタイムアウトで諦める。
+6. ~~解析負荷/コスト: Python は YOLO 推論も毎回実行する~~ → YOLO を削除して解決(下記「YOLO の削除」参照)。レスポンス遅延が 15 秒を超えるとタイムアウトで諦める。
 7. 既存の `flutter analyze` 指摘 (`lib/main.dart`) は未対応。
 
 ## レビューでの修正と再検証(Opus によるレビュー)
@@ -147,3 +147,28 @@ master へマージする際は feature/keep-supabase 側のコミットも一�
 - Docker Desktop が起動していなかったため起動した。
 - Python イメージ(ultralytics / torch を含む)のビルドに10分以上かかり、ツールのタイムアウトを超えた。
   バックグラウンドで継続中。完了後に `curl` で `/upload` と CORS プリフライトを確認する予定。
+
+## YOLO の削除 (2026-10-29)
+### 理由
+- アプリが使うのは `color` だけで、YOLO の `category` は使われていなかった。
+- しかも yolov8n (COCO) は服の種類を見分けられず、`person` などしか返さないため役に立っていなかった。
+- YOLO のために PyTorch が入り、イメージが巨大でビルドに30分以上かかっていた(今回の作業で何度もハマった原因)。
+- 自宅サーバー (PVE) に Python を立て直すにあたり、軽くしたいという要望があった。
+
+### 変更
+- `Python/main.py`: YOLO の読み込み・推論を削除し、色解析だけを返す。レスポンスは `{"color","color_en","hex","ratio"}`。
+  画像をデコードできない場合は `{"color":"unknown"}`(フロントは "unknown" を「解析できなかった」として扱い、色欄を変えない)。
+- `Python/requirements.txt`: `ultralytics-opencv-headless` → `opencv-python-headless==4.12.0.88`
+- `Python/Dockerfile`: apt での `libglib2.0-0` / `libgl1` / `ffmpeg` のインストールを削除(headless 版の OpenCV は必要なライブラリを同梱しているため)
+- `README.md` / `CLAUDE.md` の YOLO の記述を OpenCV の色解析に更新
+
+### 結果
+| | YOLO あり | YOLO なし |
+| --- | --- | --- |
+| イメージサイズ | 3.51 GB | **138 MB** |
+| ビルド時間 | 30分以上 | **61秒** |
+| メモリ使用量(起動後) | 未計測 | 約 51 MB |
+
+- 通し確認 (Go → Python): `sample.jpg` → 「黒」(0.26秒)、`sample2.jpg` → 「黒」、画像でないファイル → `{"color":"unknown"}`。削除前と同じ色の結果。
+- apt パッケージを外しても `import cv2` を含めエラーなく起動した。
+- `python -m compileall` 成功。Go とフロントは変更なし(テストの偽レスポンスに `category` が残っているが、余分なキーは無視されるので影響なし)。

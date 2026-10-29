@@ -10,8 +10,8 @@ Closetlyは、自分の服を写真で管理できるクローゼットアプリ
 
 - カメラで服を撮影
 - 撮影した画像を表示
-- Go APIへ画像送信
-- Python APIで画像解析（YOLO導入予定）
+- Go API経由でPython APIへ画像送信
+- OpenCVで服の色を解析し、色欄に自動入力
 
 ## 服の登録
 
@@ -39,7 +39,7 @@ Go(Gin)
    ↓
 Python(FastAPI)
    ↓
-YOLO
+OpenCV（色解析）
 ```
 
 ### Frontend
@@ -52,11 +52,11 @@ YOLO
 - Go
 - Gin
 
-### AI
+### 画像解析
 
 - Python
 - FastAPI
-- YOLOv8
+- OpenCV
 
 ### Database
 
@@ -106,8 +106,7 @@ GitHub Actions と Self-hosted Runner を使用して自動デプロイを行っ
 
 # 今後の実装予定
 
-- YOLOによる服カテゴリ自動判定
-- 色の自動判定
+- 服カテゴリの自動判定
 - 服検索機能
 - フィルタ機能
 - コーデ提案機能

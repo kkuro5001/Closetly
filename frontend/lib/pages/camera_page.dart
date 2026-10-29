@@ -100,6 +100,9 @@ class _CameraPageState extends State<CameraPage> {
     // 解析中に別の写真が選ばれた場合に古い結果で上書きしないための番号
     final requestId = ++_colorRequestId;
 
+    // 解析中にユーザーが色を手入力した場合はそちらを優先するため、開始時の値を覚えておく
+    final textAtStart = colorController.text;
+
     debugPrint("===== 色解析開始 (#$requestId) =====");
 
     setState(() {
@@ -116,7 +119,9 @@ class _CameraPageState extends State<CameraPage> {
         return;
       }
 
-      if (color != null) {
+      if (colorController.text != textAtStart) {
+        debugPrint("手入力済みのため自動入力しない (#$requestId)");
+      } else if (color != null) {
         colorController.text = color;
         debugPrint("色を自動入力: $color");
       }

@@ -156,3 +156,36 @@
   3. keepalive を書き込み (insert/update) にする(効果は未検証)
 - 補足: 同時期に ShukatsuHub には「RLS が無効なテーブルがある (rls_disabled_in_public)」というセキュリティ警告も届いていたが、
   これは一時停止とは無関係。Closetly は警告の対象外。
+
+## 本番デプロイ (2026-10-29)
+### 流れ
+1. Proxmox に Python 用の CT を新しく立て、runner `closetly-python` (ラベル `python`) を登録(ユーザー作業)。3つの runner がすべて online であることを確認。
+2. YOLO 削除のコミットを push → PR #14 の CI 成功 → PR #14 をマージ (`b2d1373`)。
+3. master の CI: テスト・Go/Python/フロントのイメージ作成と Docker Hub への push がすべて成功。
+4. CD: `deploy-go` / `deploy-python` / `deploy-frontend` すべて成功。
+
+### 本番での確認 (`https://closetly-go.kkuro.com`)
+| 確認 | 結果 |
+| --- | --- |
+| `/upload` に黒いTシャツの写真 | `{"color":"黒",...}`(HTTP 200, 1.4秒) |
+| CORS プリフライト | `204` + `access-control-allow-origin: *`(マージ前は 404 だった) |
+| マージ前に出ていた `{"error":"python error"}` | 解消。新しい CT の Python (`192.168.11.37:8000`) に Go から届いている |
+| Python のバージョン | YOLO 削除版(レスポンスに `category` が無い) |
+
+- 新しい CT (LXC) でも、`deploy-python` に `--security-opt apparmor=unconfined` を付けずに Python が起動できた。
+
+### 遭遇した問題
+1. **フロントが `localhost:8080` を呼ぶ版でビルドされた**
+   - 原因: GitHub の `vars.API_BASE_URL` が未設定のままマージしたため、CI が初期値 `http://localhost:8080` でビルドした。
+   - 対処: ユーザーが `gh variable set API_BASE_URL --body "https://closetly-go.kkuro.com"` を実行し、`gh run rerun` で master の CI を再実行。
+     CI のログで `API_BASE_URL=https://closetly-go.kkuro.com` が渡されていることを確認。
+   - Claude からの `gh variable set` はリポジトリ設定の変更として権限確認で拒否されたため、ユーザーに実行してもらった。
+2. **再実行後の CD で `deploy-go` が失敗**
+   - ジョブの `Deploy Go` ステップが `in_progress` のまま runner 情報が空になり、18秒で失敗扱いになった。ログも残っていない(runner との接続が途中で切れたと思われる)。
+   - 再実行は同じコミット (`b2d1373`) のビルドで Go のイメージは1回目と同じ中身のため、本番の Go は1回目のデプロイの新しい版のまま動いている(CORS 有効を確認)。影響なし。
+   - 同じことが続くようなら Go の runner のログ(`_diag` フォルダ)を確認する。
+3. **デプロイ後もフロントが古いまま見える**
+   - 原因: Cloudflare が `main.dart.js` をキャッシュしていた(`cf-cache-status: HIT`, `Cache-Control: max-age=14400` = 最大4時間)。
+   - キャッシュを避けて (`?v=...` 付きで) 取得すると、新しい版 (`closetly-go.kkuro.com` を呼ぶ) が配信されていることを確認。
+   - 対処: Cloudflare のダッシュボードでキャッシュを削除 (Caching → Configuration → Purge Everything) するか、最大4時間待つ。
+   - 今後の改善案: nginx で `index.html` / `main.dart.js` / `flutter_service_worker.js` に `Cache-Control: no-cache` を付けると、デプロイ直後から新しい版が届くようになる。

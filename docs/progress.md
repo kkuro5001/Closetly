@@ -141,3 +141,18 @@
 - `gh` が入っていなかったため `winget install GitHub.cli` でインストール(v2.103.3)し、ユーザーが `gh auth login --web` でログイン。
 - インストール直後は既存のシェルの PATH に `gh` が無いため、`C:\Program Files\GitHub CLI\gh.exe` のフルパスで実行した。
 - PR #14 を作成。CI (`test-and-build`) は成功。`Supabase Preview` は skipping(連携設定が無いため)。
+
+## Supabase が一時停止した原因 (2026-10-29 判明)
+- 同じアカウントの別プロジェクト ShukatsuHub に届いた Supabase のメール(10/27 13:08 JST):
+  「free-tier projects are automatically paused after 7 days of inactivity」として一時停止。
+- ShukatsuHub の keepalive (DB に `SELECT 1`) は **10/26 12:35 JST に成功**しており、その翌日に「7日間アクセスなし」として停止された。
+  Closetly も 10/25 に keepalive (REST API で SELECT) が成功した直後、10/28 までに停止している。
+- **結論: keepalive の定期的な読み取りアクセスは、Supabase の「アクティビティ」として数えられていなかった。**
+  ワークフロー自体の不具合ではなく、この方式では一時停止を防げない。
+  (Supabase が何をアクティビティとみなすかは公開されていないため、どのアクセスなら数えられるかは不明)
+- 対策の選択肢:
+  1. Pro プランにする(確実に止まらない唯一の方法)
+  2. 止まったらダッシュボードから手動で再開する(90日以内なら可能)← 当面はこれで様子を見る方針を提案
+  3. keepalive を書き込み (insert/update) にする(効果は未検証)
+- 補足: 同時期に ShukatsuHub には「RLS が無効なテーブルがある (rls_disabled_in_public)」というセキュリティ警告も届いていたが、
+  これは一時停止とは無関係。Closetly は警告の対象外。

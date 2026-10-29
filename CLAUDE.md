@@ -99,5 +99,12 @@ The frontend image serves the web build with nginx using `frontend/nginx.conf`: 
 - `.github/workflows/cd.yml`: triggered by a successful CI run; self-hosted runners pull the new images and restart the `closetly-go`/`closetly-python`/`closetly-frontend` containers. The Go container is started with `PYTHON_API_URL` pointing at the Python container's LAN address. Each deploy ends with `docker image prune -f`, since every pull leaves the previous image behind as a dangling image (without it, the Go host's 20GB disk filled up and its runner went offline).
 - Self-hosted runners: each service runs in its own Proxmox VE LXC container (unprivileged, with `nesting=1,keyctl=1` for Docker), with a runner labeled `go` / `python` / `frontend` to match the `runs-on` labels in `cd.yml`, installed as a systemd service via `svc.sh`. The Python container's IP (`192.168.11.37`) is hard-coded in `cd.yml`'s `PYTHON_API_URL`, so it must stay fixed. The Go and frontend containers are run with `--security-opt apparmor=unconfined` (Docker-in-LXC AppArmor workaround); Python currently runs without it.
 
+## Docs (`docs/`)
+Work logs are kept in `docs/` (written in Japanese). Read them before touching the color-analysis pipeline, deploys, or caching — they record why things are the way they are.
+- `docs/color-autofill.md`: design record for the color auto-fill feature — the request flow, design decisions and their reasons (CORS vs nginx proxy, `--dart-define` for `API_BASE_URL`, failure handling, stale-result guard, why YOLO was dropped), test commands/results, and known limitations (e.g. multi-garment photos pick the largest color; HSV thresholds not validated on many real photos).
+- `docs/progress.md`: chronological progress log — what was done, every problem hit and how it was solved (port 8080 conflict with another local project, Supabase free-tier auto-pause and why the keepalive didn't prevent it, unset `vars.API_BASE_URL`, Cloudflare caching an old build, committing on the wrong branch, etc.), production verification results, and remaining tasks.
+
+When doing work in this repo, append to `docs/` as you go: the problems you ran into, how you solved them, and the reasoning behind decisions (including things that failed or were skipped). Add to the existing file that fits, or create a new topic file and list it here.
+
 返信は日本語で書くこと。
 作業が終わったら行ったことと直面した問題を言うこと。

@@ -240,3 +240,35 @@
    - 教訓: コミットや push の前に `git status -sb` で今いるブランチを確認する。
 2. **docs の追記に失敗した**: Windows の Python から Git Bash の `/tmp` のパスが見えず、ファイルを読めなかった。
    scratchpad のフォルダ(Windows のパス)を使ってやり直した。
+
+### 本番への反映結果 (2026-10-29, PR #15 マージ後)
+- PR #15 をマージ (`29f867c`)。master の CI 成功、CD (`deploy-go` / `deploy-python` / `deploy-frontend`) すべて成功。
+- 途中で GitHub API への接続が `TLS handshake timeout` になったが、少し待って再試行したら取得できた(一時的なネットワークの問題)。
+- 補足: CD は `workflow_run` で Closetly-CI の完了をきっかけに動くため、**PR の CI が終わったときにも CD が動いている**
+  (master のイメージを取り直して入れ替えるだけなので害はないが、PR を出すたびに本番のコンテナが再起動する)。
+  必要なら `cd.yml` の `if:` に `github.event.workflow_run.event == 'push'` を加えて、master への push のときだけ動かすようにできる。
+
+#### ヘッダーの確認
+| ファイル | 反映直後 | キャッシュを避けて取得 | もう一度パージした後 |
+| --- | --- | --- | --- |
+| `/` | no-cache / `DYNAMIC` | - | no-cache / `DYNAMIC` |
+| `main.dart.js` | `max-age=14400` / `HIT`(古いコピー) | no-cache / `BYPASS` | **no-cache / `BYPASS`** |
+| `flutter_service_worker.js` | `max-age=14400` / `HIT`(古いコピー) | no-cache / `BYPASS` | **no-cache / `BYPASS`** |
+| `flutter_bootstrap.js` | `max-age=14400` / `HIT`(古いコピー) | no-cache / `BYPASS` | `max-age=14400` / `HIT`(下記) |
+| `favicon.png` | `max-age=14400` / `HIT` | `max-age=14400` / `MISS` | `max-age=14400` / `HIT`(想定どおり) |
+
+- 反映直後は、前回パージした後に古い設定のまま Cloudflare に保存されたコピーが残っていたため、ユーザーがもう一度「すべてをパージ」した。
+- 2回目のパージ後、`main.dart.js` と `flutter_service_worker.js` は `BYPASS`(Cloudflare が保存せずオリジンから返す)になった。
+  → **次のデプロイからはパージ不要。**
+- `flutter_bootstrap.js` だけは2回目のパージ後も古いコピーが残っていた(`Age: 2129` = デプロイ前の 06:19 UTC ごろに保存されたもの)。
+  パージで消えなかった理由は不明(Cloudflare 側の反映の遅れなどが考えられる)。
+  - オリジンは正しく no-cache を返しているので、このコピーが期限切れ(保存から4時間、10:19 UTC = 19:19 JST ごろ)になれば以後は保存されない。
+  - このファイルは `main.dart.js` を読み込む役目で、`main.dart.js` は毎回新しいものが届くため、アプリの動作への影響は小さい。
+  - すぐ消したい場合は Cloudflare の「カスタムパージ」で `https://closetly.kkuro.com/flutter_bootstrap.js` を指定する。
+- 未対応の改善案: `no-store` を外して `no-cache` だけにすると、ブラウザが「変更なし (304)」の確認だけで済み、
+  毎回 `main.dart.js`(約 2.3MB、圧縮転送で約 0.8MB)を丸ごとダウンロードしなくて済む(Cloudflare は `no-cache` でも保存しないので効果は同じ)。
+
+### 補足: 再実行時の `deploy-go` の失敗について (2026-10-29 追記)
+- PR #16 (`feature/cd-image-prune`) で CLAUDE.md に「pull のたびに古いイメージが残り、Go のホストの 20GB のディスクがいっぱいになって runner がオフラインになった」と記録された。
+- 上の「再実行後の CD で `deploy-go` が失敗」(ジョブの途中で runner 情報が空になり、ログも残らなかった)は、このディスク不足で Go の runner が落ちたのが原因だった可能性が高い。
+- PR #16 で各デプロイの最後に `docker image prune -f` が入ったので、同じ失敗は起きにくくなっている。

@@ -1,9 +1,9 @@
-# 作業状況メモ (2026-10-29 時点・一時停止中)
+# 作業状況メモ (2026-10-29 完了)
 
 「写真から服の色を解析して色欄に自動入力する」機能の進み具合。
 設計や問題の詳細は [color-autofill.md](color-autofill.md) を参照。
 
-## 進捗: 約8割
+## 進捗: 完了(Docker での通し確認まで済み、push 済み)
 
 ## ブランチ / 作業場所
 - `feature/keep-supabase`: Python の色解析 (`4215997`) まで commit・push 済み
@@ -56,7 +56,7 @@
 - `docker compose down` 済み。起動中のコンテナはない。
 - worktree の変更はローカルの `feature/keep-supabase` に取り込み済み(fast-forward)。**GitHub へは未 push**。
 
-### 再開手順
+### 再開手順(実施済み)
 メインのフォルダ (`C:\Personal_production\Closetly`) で以下を行う。
 1. Docker Desktop を起動する
 2. `docker compose up --build -d go python`(Python のビルドに30分以上かかる見込み)
@@ -71,3 +71,24 @@
 5. 結果をこのファイルと `color-autofill.md` に追記して commit
 6. `git push origin feature/keep-supabase`
 7. 後片付け: worktree を削除する (`git worktree remove .claude/worktrees/agent-a14bcde4850f99738`、ブランチ `worktree-agent-a14bcde4850f99738` も削除)
+
+## 再開後の結果 (2026-10-29)
+- `docker compose up --build -d go python` はビルド成功(前回途中までのキャッシュが効き、短時間で完了)。
+- **問題**: Go コンテナが起動できなかった。
+  `Bind for 0.0.0.0:8080 failed: port is already allocated`
+  → 原因は別プロジェクトのコンテナ `sec_docker-php-apache-1` が 8080 番を使っていたこと。
+  → 他のプロジェクトは止めず、ビルド済みの Go イメージを確認用にポート 18080 で起動して回避した:
+  ```
+  docker run -d --rm --name closetly-go-test --network closetly_default -p 18080:8080 -e PYTHON_API_URL=http://python:8000 closetly-go
+  ```
+  (`docker-compose.yml` の 8080 はそのまま。普段の開発で同じ衝突が起きたら、相手のコンテナを止めるか compose のポートを変える)
+- 確認結果(Go → Python の通し、すべて期待どおり):
+  | 確認 | 結果 |
+  | --- | --- |
+  | `Go/sample.jpg`(黒いTシャツ単体) | `"color":"黒"`, hex `#141414`, ratio 0.926 → 正しい |
+  | `Go/sample2.jpg`(人物の全身コーデ: 薄緑のジャケット + 黒のインナー/パンツ) | `"color":"黒"`, ratio 0.484 |
+  | OPTIONS プリフライト | `204` + `Access-Control-Allow-Origin: *` / Methods / Headers |
+  | 画像なしで POST | `400` |
+- **わかった制限**: 1枚に複数の服が写っている写真では、面積が一番大きい色が選ばれる(sample2 ではジャケットの緑ではなくパンツ等の黒)。
+  服を1着ずつ撮って登録する使い方なら問題ないが、コーデ写真には向かない。色欄は手で直せるので致命的ではない。
+- ブラウザ・実機での画面操作は未確認のまま。

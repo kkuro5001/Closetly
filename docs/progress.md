@@ -91,4 +91,37 @@
   | 画像なしで POST | `400` |
 - **わかった制限**: 1枚に複数の服が写っている写真では、面積が一番大きい色が選ばれる(sample2 ではジャケットの緑ではなくパンツ等の黒)。
   服を1着ずつ撮って登録する使い方なら問題ないが、コーデ写真には向かない。色欄は手で直せるので致命的ではない。
-- ブラウザ・実機での画面操作は未確認のまま。
+- ブラウザでの画面操作は下記「アプリでの動作確認」で確認済み(スマホ実機は未確認)。
+
+## アプリでの動作確認 (2026-10-29, Flutter Web + Chrome)
+### 手順
+- バックエンド: `docker compose up -d python` と、Go を 18080 番で起動(8080 は別プロジェクトが使用中のため)
+- フロント: `flutter run -d web-server --web-port 5050 --dart-define=API_BASE_URL=http://localhost:18080`
+- Chrome で `http://localhost:5050` を開き、テストユーザーでログイン → カメラ画面 → 「写真を追加」で `Go/sample.jpg` を選択
+
+### 結果
+| 確認 | 結果 |
+| --- | --- |
+| 写真を選ぶと色欄に自動入力される | 「黒」が入った |
+| ブラウザ → Go の通信 (CORS) | ブラウザのコンソールに `色解析レスポンス: 200 {"color":"黒", ...}`。CORS エラーなし |
+| 色欄を手で直せる | 「チャコール」に書き換えられた |
+| 保存 | 本番の Supabase にデータが入るため実行していない |
+
+- コンソールに出ていた `Unhandled error detected in the injected client.js` は Flutter の開発用デバッグスクリプト (dwds) のエラーで、アプリや今回の変更とは無関係。
+- 解析中のインジケーターは処理が一瞬で終わったため目視できなかった(ログ上は開始→終了を確認)。
+
+### 遭遇した問題: テストユーザーでログインできない
+- 「テストユーザーでログイン」を押すとログイン失敗になった。
+- 原因: **Supabase のプロジェクトが一時停止していた**。プロジェクトのドメイン
+  `ensmryjkvsjkzoqotqlk.supabase.co` が DNS で「Non-existent domain」になっていた
+  (`supabase.com` や `github.com` には接続できたので手元のネットワークの問題ではない)。
+- さらに、一時停止を防ぐはずの `.github/workflows/supabase-keepalive.yml` が **master ブランチに入っていない**ことがわかった。
+  GitHub Actions の `schedule` は既定ブランチ (master) にあるワークフローしか実行しないため、一度も動いていなかったと考えられる。
+- 対処: ユーザーが Supabase のダッシュボードからプロジェクトを再開 → `/auth/v1/health` が 200 になったのを確認してからログインし直して成功。
+- 今後: `feature/keep-supabase` を master にマージすれば keepalive が動き始める。
+- 外部サービス (本番 Supabase) へのログインとファイル選択ダイアログの操作は、Claude からは行わずユーザーに操作してもらった。
+
+## 残っていること
+- `feature/keep-supabase` → master のプルリクエスト作成とマージ
+- 本番用に GitHub の `vars.API_BASE_URL` を設定
+- スマホ実機での確認

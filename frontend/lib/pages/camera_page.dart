@@ -8,20 +8,7 @@ import '../services/storage_service.dart';
 import '../services/clothing_service.dart';
 import '../services/color_service.dart';
 import '../models/clothing.dart';
-
-const _categoryOptions = [
-  "Tシャツ",
-  "シャツ",
-  "パーカー",
-  "セーター",
-  "アウター",
-  "パンツ",
-  "スカート",
-  "ワンピース",
-  "靴",
-  "帽子",
-  "その他",
-];
+import '../constants/clothing_options.dart';
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
@@ -54,8 +41,8 @@ class _CameraPageState extends State<CameraPage> {
   final colorController = TextEditingController();
 
   // 選択されたカテゴリ・季節
-  String selectedCategory = _categoryOptions.first;
-  String selectedSeason = "春秋";
+  String selectedCategory = categoryOptions.first;
+  String selectedSeason = seasonOptions.first;
 
   Future<void> takePhoto() => _pickImage(ImageSource.camera);
 
@@ -280,7 +267,7 @@ class _CameraPageState extends State<CameraPage> {
                       labelText: "カテゴリ",
                       border: OutlineInputBorder(),
                     ),
-                    items: _categoryOptions
+                    items: categoryOptions
                         .map((c) => DropdownMenuItem(
                               value: c,
                               child: Text(c),
@@ -326,24 +313,12 @@ class _CameraPageState extends State<CameraPage> {
                       labelText: "季節",
                       border: OutlineInputBorder(),
                     ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: "春秋",
-                        child: Text("春秋"),
-                      ),
-                      DropdownMenuItem(
-                        value: "夏",
-                        child: Text("夏"),
-                      ),
-                      DropdownMenuItem(
-                        value: "冬",
-                        child: Text("冬"),
-                      ),
-                      DropdownMenuItem(
-                        value: "オールシーズン",
-                        child: Text("オールシーズン"),
-                      ),
-                    ],
+                    items: seasonOptions
+                        .map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(s),
+                            ))
+                        .toList(),
                     onChanged: (value) {
                       debugPrint("季節変更: $value");
                       setState(() {

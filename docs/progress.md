@@ -272,3 +272,65 @@
 - PR #16 (`feature/cd-image-prune`) で CLAUDE.md に「pull のたびに古いイメージが残り、Go のホストの 20GB のディスクがいっぱいになって runner がオフラインになった」と記録された。
 - 上の「再実行後の CD で `deploy-go` が失敗」(ジョブの途中で runner 情報が空になり、ログも残らなかった)は、このディスク不足で Go の runner が落ちたのが原因だった可能性が高い。
 - PR #16 で各デプロイの最後に `docker image prune -f` が入ったので、同じ失敗は起きにくくなっている。
+
+## Go の CT のディスク逼迫と CD の改善 (2026-10-29, PR #16)
+### 見つかったこと
+- GitHub の Runners 一覧で Go の runner が **Offline** になっていた。
+  - `svc.sh status` ではサービスは2か月以上 `active (running)` のままだったが、`CGroup` に `Runner.Listener`(実際に GitHub とつながるプロセス)がおらず、外側の `RunnerService.js` だけが動いていた。
+- `df -h /` で Go の CT (`vm-102`, 20GB) のディスクが **100%(空き 0)** になっていた。これが runner が落ちた原因と考えられる。
+  - `docker system df`: イメージ 21個 / 16.03GB のうち 11.61GB が削除可能。
+  - `docker images` には3つしか出なかった。新しい Docker の表示ではタグの無い古いイメージ(`<none>`)が隠れるため。
+  - 原因: CD は `docker pull` して入れ替えるだけで古いイメージを消しておらず、1.83GB の Go のイメージがデプロイのたびに残っていた。
+  - 使われていない `containrrr/watchtower` のイメージも残っていた(昔試したものの名残。コンテナはすでに無かった)。
+
+### 対処(CT 上、ユーザー作業)
+- `docker image prune -a -f` と `docker container prune -f` → ディスク使用量 **19GB (100%) → 5.1GB (27%)**、イメージは2個 / 1.83GB に。
+- `svc.sh stop` → `svc.sh start` で runner が復活し、Idle に戻った(入れ直しは不要だった)。
+- 入れ直す場合の手順(GitHub で古い runner を Remove → `config.sh ... --labels go` → `svc.sh install`)も用意したが、使わずに済んだ。
+
+### 再発防止 (PR #16)
+- `cd.yml`: Go / Python / フロントの各デプロイの最後に `docker image prune -f` を追加(タグの無い古いイメージだけを消す。`-a` は付けない)。
+- `Go/Dockerfile` をマルチステージビルドに変更:
+  - ビルドは `golang:1.25`(`CGO_ENABLED=0` で静的リンク)、実行は `gcr.io/distroless/static-debian12`。
+  - `main` と、`GET /test`(`Go/test.go`)が実行時に読む `sample2.jpg` だけをコピーする。
+  - イメージは **1.83GB → 40.8MB**。
+- 確認: `go test ./...` 成功。ローカルでマルチステージ版の Go と YOLO なしの Python をつなぎ、`POST /upload` で `{"color":"黒",...}` が返ること、`OPTIONS /upload` が 204 を返すことを確認。
+- マージ後の CD のログで、Go の古いイメージ(`a9e9b83e…`)が prune で消えたこと(553.8MB 回収)、フロントの CT でも古いイメージがまとめて消えたことを確認。
+
+### 補足: Python の CT のサイズ
+- YOLO を外した Python のイメージは約 0.35GB の見込み(YOLO 込みはローカルで 10.5GB だった)。
+- CT はディスク 10GB / 2コア / メモリ 1GB(スワップ 512MB)を目安にした。CI のビルドは GitHub 側 (`ubuntu-latest`) で行うので、CT は runner の常駐と pull・起動だけで済む。
+- prune がなければ Python も同じようにたまる(1回 0.35GB なので Go より遅いだけ)。
+
+## CORS の許可オリジンを絞る / CD を master への push だけにする (2026-10-29, PR #18)
+### 変更
+- `Go/main.go`: `Access-Control-Allow-Origin: *` をやめ、環境変数 `CORS_ALLOWED_ORIGINS`(カンマ区切り)にあるオリジンだけをそのまま返す(`Vary: Origin` 付き)。
+  - 許可外のオリジンのプリフライトは 403。
+  - 未設定のときはローカル開発用に `localhost` / `127.0.0.1`(ポートは問わない)だけを許可(`flutter run` はポートが毎回変わるため)。
+  - `Origin` ヘッダーの無いリクエスト(ネイティブアプリ・curl)はそのまま通る。CORS はブラウザ向けの制限で、API の認証の代わりにはならない。
+- `cd.yml`:
+  - Go のコンテナに `-e CORS_ALLOWED_ORIGINS=https://closetly.kkuro.com` を渡す。
+  - 3つのジョブの `if:` に `workflow_run.event == 'push'` と `workflow_run.head_branch == 'master'` を追加。
+    上の「本番への反映結果」の補足にある「PR の CI でも CD が動き、本番のコンテナが再起動する」問題への対応。
+    `workflow_run` は常に master 側の `cd.yml` を使うので、この条件はマージ後から効く(PR #18 自身の CI ではまだ古い条件で CD が動いた)。
+- `Go/upload_test.go`: 期待値を `*` から実際のオリジンに変更し、「リスト外は 403」「リストを設定したら localhost も拒否」「複数オリジン」のテストを追加。
+
+### 確認
+- `go vet` / `go test ./...` 成功。
+- ローカルでイメージを `CORS_ALLOWED_ORIGINS=https://closetly.kkuro.com` で起動し、プリフライトを確認(本番オリジン → 204、`https://evil.example.com` → 403、`http://localhost:5050` → 403)。
+- マージ後、本番 (`https://closetly-go.kkuro.com/upload`) でも同じ結果になり、本番オリジンからの POST で `{"color":"黒",...}` が返ることを確認。
+- `https://closetly.kkuro.com` で写真を選ぶと色が自動で入ることをユーザーが確認。
+
+### 気をつける点
+- 本番のフロントを別のドメイン(`www.` 付きなど)からも開くようにする場合は、`cd.yml` の `CORS_ALLOWED_ORIGINS` に追加しないと、そのドメインでは色の自動入力が動かない。
+
+## PR #16 / #18 の作業中に起きた問題 (2026-10-29)
+1. **Bash から `gh` が見つからない**: `gh` が Git Bash の PATH に入っていなかったため、PowerShell から `C:\Program Files\GitHub CLI\gh.exe` のフルパスで実行した。
+2. **PR #18 のマージが権限確認で拒否された**(「レビューなしのマージ」と判定。PR #16 では通った)。ユーザーにマージしてもらった。
+   - その際、`!` で入力するコマンドを PowerShell の書き方(`& "C:\...\gh.exe" ...`)で案内してしまい、Bash で構文エラーになった。
+     `!` は Bash で実行されるので、`"/c/Program Files/GitHub CLI/gh.exe" pr merge 18 --merge` が正しい。
+3. **`gh pr checks --watch` が `TLS handshake timeout` で失敗**: 一時的なもので、再実行で成功。
+4. **CI 待ちの間に別の PR (#19〜#21) が同時にマージされ、CI が2本並行して走った**: 両方の CI と、その後の CD がすべて成功したことを確認した。
+   07:15 の CD が1回 `skipped` になっていたのは、新しい `if:` で PR の CI 由来の実行が止まったものと考えられる(起動元の CI までは特定していない)。
+5. **作業ツリーに別の作業の未コミットの変更があった**(`CLAUDE.md` の RLS update ポリシーの記述、`supabase/clothes_table.sql`)。
+   master に切り替えられなかったため、`git stash` で退避 → master を pull → `git stash pop` で元に戻した。これらのファイルはコミットに含めていない。

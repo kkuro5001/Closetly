@@ -362,3 +362,20 @@ Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開�
 - 実際の Gemini を呼んだ動作(提案の質、60秒のタイムアウトに収まるか)。
 - ブラウザ・実機での画面確認、Supabase に SQL を適用した実 DB での保存・削除・着用記録。
 - 画面のウィジェットテストは無い(Supabase に直接依存するため)。純粋関数とサービス(MockClient)のテストのみ。
+
+### Supabase と Gemini API キーの設定 (2026-11-03)
+前回の update ポリシーと同じく、案内役の Claude Code を別タブで起動し(指示書を書いて `wt new-tab ... claude "<指示書を読んで案内して>"`)、開発と並行してユーザーと会話しながら進めた。
+案内役は SQL を実行せず、リポジトリも変更しない取り決めにして、進み具合は一時ファイルに書かせ、司令塔(Opus)がそれを読んで docs に反映した。
+
+- **SQL**: ユーザーが SQL Editor で `add_wear_logs_and_outfits.sql` を実行(エラーなし)。
+  `pg_constraint` で、`wear_logs` の `unique (clothing_id, worn_on)` と外部キー6件がすべて `on delete cascade` であることを確認した。
+  RLS ポリシーは 9件(ユーザーが行数を報告。表の中身までは見ていない)。
+- **Gemini API キー**: Google AI Studio で発行。キー作成時に既存の(インポートした)Google Cloud プロジェクトを選ぶ欄があったが、
+  課金が設定されたプロジェクトだと有料になるおそれがあるため、新しいプロジェクトで作った。キーは会話に貼らないようにした。
+- **キーが `AIza` で始まらなかった**: 形式が変わった可能性があり、誤コピー(プロジェクト ID など)でないことを確かめるため、
+  ユーザーが PowerShell から `GET https://generativelanguage.googleapis.com/v1beta/models`(ヘッダー `x-goog-api-key`)を呼び、200 が返ることを確認した。
+- **GitHub Secrets**: `GEMINI_API_KEY` を登録し、`gh secret list` で確認。`SUPABASE_URL` / `SUPABASE_ANON_KEY` は cd.yml に直書き(公開値)なので Secret は不要
+  (同名の既存 Secret は keepalive ワークフロー用)。
+- **`gh` が入っていなかった**: PR 作成時に `gh` が無かったため、`winget install GitHub.cli` で入れ、ユーザーが `gh auth login --web` でログインした。
+  インストール直後の既存ターミナルでは PATH が反映されないため、フルパス(`C:\Program Files\GitHub CLI\gh.exe`)で実行した。
+- ローカル用の `.env` は作っていない(スキップ)。ローカルで AI 提案を試すには `.env` に `GEMINI_API_KEY` が必要。

@@ -10,12 +10,18 @@ import '../models/outfit.dart';
 
 class OutfitService {
 
-  OutfitService({http.Client? client, String? baseUrl})
-      : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? ApiConfig.baseUrl;
+  // accessToken はテストで差し替えるための口(未指定なら Supabase のセッションから取る)
+  OutfitService({
+    http.Client? client,
+    String? baseUrl,
+    String? Function()? accessToken,
+  })  : _client = client ?? http.Client(),
+        _baseUrl = baseUrl ?? ApiConfig.baseUrl,
+        _accessToken = accessToken;
 
   final http.Client _client;
   final String _baseUrl;
+  final String? Function()? _accessToken;
 
   SupabaseClient get _supabase => Supabase.instance.client;
 
@@ -72,7 +78,9 @@ class OutfitService {
     String season = '',
   }) async {
 
-    final token = _supabase.auth.currentSession?.accessToken;
+    final token = _accessToken != null
+        ? _accessToken()
+        : _supabase.auth.currentSession?.accessToken;
     if (token == null) {
       throw Exception("ログインしていません");
     }

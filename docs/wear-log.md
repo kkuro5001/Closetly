@@ -7,6 +7,16 @@
 - ホーム画面に 2 枚のカード: 「しばらく着ていない服(30日以上)」と「よく着る服(上位5着、回数つき)」。どちらも横スクロールのサムネイルで、タップで詳細へ
 - 集計は UI 非依存の純粋関数として `frontend/lib/utils/wear_stats.dart` に置いた。テストは `frontend/test/wear_stats_test.dart`
 
+## DB の設計(`supabase/migrations/add_wear_logs_and_outfits.sql`)
+着用記録とコーデのテーブルは同じ SQL で作っている。共通のポイント:
+
+- **自分のデータしか扱えない(RLS)**: `wear_logs` / `outfits` / `outfit_items` は select / insert / delete とも `user_id = auth.uid()` の行だけ(update ポリシーは無い)。
+  さらに insert は、参照先の服(`clothes`)・コーデ(`outfits`)が自分のものかも `exists` で確認するので、他人の服の ID を指定しても追加できない。
+- **服を消すと関連データも自動で消える**: 外部キーが `on delete cascade`。服を消すと、その服の着用記録と、コーデの中のその服(`outfit_items` の行)が一緒に消える(コーデ自体は残る)。
+  コーデを消すと、中の服の紐づけ(`outfit_items`)が消える(服そのものは消えない)。
+- **同じ服を同じ日に2回は記録できない**: `unique (clothing_id, worn_on)` で重複を防ぐ。アプリ側は `upsert(..., ignoreDuplicates: true)` で重複を無視する。
+- **日付はアプリから送る**: DB の `current_date` は UTC(日本時間より9時間遅い)なので、日本の朝9時前に記録すると前日の日付になる。これを避けるため、端末のローカル日付を `worn_on` として送る。
+
 ## 設計判断
 - 「今日」は引数で受け取る: `staleClothes(clothes, logs, today)`。関数の中で `DateTime.now()` を呼ばないので、テストで日付を固定できる。画面側は端末のローカル日付(`DateTime.now()`)を渡す。DB の `current_date` は UTC なので使わない(土台の方針どおり)。
 - 日数の数え方: `daysBetween` は両方を `DateTime.utc(y, m, d)` にして差を取る。ローカル時刻のまま `difference` すると夏時間で 23/25 時間の日があり、`inDays` がずれうるため。

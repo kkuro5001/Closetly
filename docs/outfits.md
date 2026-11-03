@@ -8,6 +8,16 @@
 - `frontend/lib/utils/outfit_utils.dart`: 純粋関数(`resolveOutfitClothes` / `validateOutfitInput` / `filterByCategory`)
 - `frontend/test/outfit_utils_test.dart`: 上記の単体テスト(9件)
 
+## DB の設計(`supabase/migrations/add_wear_logs_and_outfits.sql`)
+着用記録とコーデのテーブルは同じ SQL で作っている。共通のポイント:
+
+- **自分のデータしか扱えない(RLS)**: `wear_logs` / `outfits` / `outfit_items` は select / insert / delete とも `user_id = auth.uid()` の行だけ(update ポリシーは無い)。
+  さらに insert は、参照先の服(`clothes`)・コーデ(`outfits`)が自分のものかも `exists` で確認するので、他人の服の ID を指定しても追加できない。
+- **服を消すと関連データも自動で消える**: 外部キーが `on delete cascade`。服を消すと、その服の着用記録と、コーデの中のその服(`outfit_items` の行)が一緒に消える(コーデ自体は残る)。
+  コーデを消すと、中の服の紐づけ(`outfit_items`)が消える(服そのものは消えない)。
+- **同じ服を同じ日に2回は記録できない**: `unique (clothing_id, worn_on)` で重複を防ぐ。アプリ側は `upsert(..., ignoreDuplicates: true)` で重複を無視する。
+- **日付はアプリから送る**: DB の `current_date` は UTC(日本時間より9時間遅い)なので、日本の朝9時前に記録すると前日の日付になる。これを避けるため、端末のローカル日付を `worn_on` として送る。
+
 ## 設計判断
 - **一覧は outfits と clothes を並行取得する**: `Outfit` は服の id しか持たず、サムネイルには `imagePath` が要る。`Future.wait` で両方読み、`resolveOutfitClothes` で引き当てる。DB に既にある `outfit_items` の結合をいじらず土台を変えないため。
 - **存在しない id は黙って飛ばす**: 服が削除されると DB 側で outfit_items から外れるが、取得タイミングによっては一覧にない id が残りうる。0〜1着のコーデもエラーにせず表示し、詳細では「削除された服はこのコーデから外れています」と案内する。0着のときは着用ボタンを無効化。

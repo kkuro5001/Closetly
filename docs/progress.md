@@ -313,3 +313,69 @@
 
 ### 未確認
 - 3つとも、ブラウザ・実機での画面確認と、本番の Supabase での編集(更新)の動作は未確認。
+
+## 着用記録・コーディネート・AIコーデ提案 (2026-11-03)
+ユーザーの依頼: 「着用記録(最近着ていない服)」と「コーディネート(Gemini API で提案)」を追加したい。
+Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開発する。Supabase の設定は、ユーザーと会話する案内役の CLI を別に立てて並行して進める。
+マージはせず PR 作成まで(マージはユーザーが判断)。
+
+### 先に決めたこと(ユーザーに確認)
+- コーデ: 手動で作れる + 「AIに提案してもらう」ボタン(AI が使えなくても手動で作れる)。
+- Gemini に送るのはタグ(カテゴリ・色・季節)だけで、画像は送らない(速くて安く、写真を外に出さない。無料枠では送った内容が Google のサービス改善に使われる場合がある)。
+- Gemini は Go サーバーから呼ぶ。Flutter Web にキーを入れるとブラウザから誰でも見えるため。
+- 着用記録は服単位 + コーデ単位(コーデの「今日着た」で全部の服に記録)。
+
+### 進め方
+1. **Opus が土台を先に作ってコミット (`76522fb`)**: SQL(`supabase/migrations/add_wear_logs_and_outfits.sql`)、Go の `POST /suggest-outfit`(+ テスト7件)、
+   モデル(`wear_log.dart` / `outfit.dart`)、サービス(`wear_log_service.dart` / `outfit_service.dart`)、共通部品 `clothing_thumbnail.dart`、
+   AI 提案画面の仮ファイル、CD / docker-compose の環境変数。
+   3人が同じファイルを触ると衝突するので、共通部分と「画面の入口の約束」(`OutfitSuggestPage()` を引数なしで開き、保存したら true で戻る)を先に決めた。
+2. Sonnet 3人を別々の worktree・ブランチで並行実行。担当ファイル以外・`CLAUDE.md`・`progress.md` は触らない指示。
+3. 終わった順に Opus がコードを確認して `feature/wear-log-outfits` にマージ。衝突はなかった。
+
+| 機能 | ブランチ | docs |
+| --- | --- | --- |
+| 着用記録(詳細画面・ホーム) | `feature/wear-log-ui` | `docs/wear-log.md` |
+| コーデの手動作成(タブ・一覧・作成・詳細) | `feature/outfits-ui` | `docs/outfits.md` |
+| AIコーデ提案画面 | `feature/outfit-ai-suggest` | `docs/outfit-ai-suggest.md` |
+
+- まとめた後: `flutter analyze` は既存の `lib/main.dart` の2件のみ、`flutter test` 72件成功、`go test ./...` 成功。
+- PR は1本にした。コーデの「今日着た」は着用記録を、AI 提案はコーデ保存を使うので、別々にマージすると順番によって動かないため。
+
+### Go の `/suggest-outfit` で考えたこと
+- **今まで Go API にはログイン確認が無かった**。そのまま Gemini を呼ぶ窓口を作ると、URL を知っている人なら誰でも無料枠を使い切れてしまう。
+  → Supabase のアクセストークンを必須にし、Supabase の `/auth/v1/user` に問い合わせて確認する。
+  JWT を Go 側で検証しない理由: プロジェクトの署名鍵の種類(共有鍵 / 非対称鍵)に左右されず、鍵を Go に持たせる必要もないため。
+- 服の一覧はクライアントから受け取らず、同じトークンで Supabase から取る(RLS で本人の分だけ返る)。Gemini の返事に本人の服に無い id が混ざっても取り除ける。
+- Gemini の API: ドキュメント(`ai.google.dev` は `aistudio.google.com` に移転していた)では新しい Interactions API が中心だったが、
+  API リファレンスで `generateContent` が廃止されていないことを確認して使った。`responseMimeType: application/json` + `responseJsonSchema` で JSON の形を指定。
+- モデル: `gemini-2.5-flash` は廃止予定(2026-12-01 から別モデルへ転送)と書かれていたので、安定版の `gemini-3.6-flash` を既定にし、`GEMINI_MODEL` で変えられるようにした。
+- API キーは URL のクエリでなく `x-goog-api-key` ヘッダーで渡す(URL がログに残っても漏れない)。
+- 利用者が入力する「場面」は、プロンプト内で「場面の説明としてのみ扱う」と明示し、200字までに制限。
+
+### 作業中に起きた問題
+- Sonnet の worktree は土台のコミットより前の master から作られていたため、各自 `git merge feature/wear-log-outfits` で土台を取り込んでから作業した(指示書に手順として書いておいた)。
+- 前回と同じく、長い複合コマンドが拒否される、`flutter pub get` が `pubspec.lock` や各プラットフォームの生成ファイルを書き換える(コミット前に戻した)、テストの import は `package:frontend/` という問題があった。
+- `gofmt -l` で既存の `main.go` などが未整形と出たが、今回の作業と関係ないので触っていない。
+
+### 未確認
+- 実際の Gemini を呼んだ動作(提案の質、60秒のタイムアウトに収まるか)。
+- ブラウザ・実機での画面確認、Supabase に SQL を適用した実 DB での保存・削除・着用記録。
+- 画面のウィジェットテストは無い(Supabase に直接依存するため)。純粋関数とサービス(MockClient)のテストのみ。
+
+### Supabase と Gemini API キーの設定 (2026-11-03)
+前回の update ポリシーと同じく、案内役の Claude Code を別タブで起動し(指示書を書いて `wt new-tab ... claude "<指示書を読んで案内して>"`)、開発と並行してユーザーと会話しながら進めた。
+案内役は SQL を実行せず、リポジトリも変更しない取り決めにして、進み具合は一時ファイルに書かせ、司令塔(Opus)がそれを読んで docs に反映した。
+
+- **SQL**: ユーザーが SQL Editor で `add_wear_logs_and_outfits.sql` を実行(エラーなし)。
+  `pg_constraint` で、`wear_logs` の `unique (clothing_id, worn_on)` と外部キー6件がすべて `on delete cascade` であることを確認した。
+  RLS ポリシーは 9件(ユーザーが行数を報告。表の中身までは見ていない)。
+- **Gemini API キー**: Google AI Studio で発行。キー作成時に既存の(インポートした)Google Cloud プロジェクトを選ぶ欄があったが、
+  課金が設定されたプロジェクトだと有料になるおそれがあるため、新しいプロジェクトで作った。キーは会話に貼らないようにした。
+- **キーが `AIza` で始まらなかった**: 形式が変わった可能性があり、誤コピー(プロジェクト ID など)でないことを確かめるため、
+  ユーザーが PowerShell から `GET https://generativelanguage.googleapis.com/v1beta/models`(ヘッダー `x-goog-api-key`)を呼び、200 が返ることを確認した。
+- **GitHub Secrets**: `GEMINI_API_KEY` を登録し、`gh secret list` で確認。`SUPABASE_URL` / `SUPABASE_ANON_KEY` は cd.yml に直書き(公開値)なので Secret は不要
+  (同名の既存 Secret は keepalive ワークフロー用)。
+- **`gh` が入っていなかった**: PR 作成時に `gh` が無かったため、`winget install GitHub.cli` で入れ、ユーザーが `gh auth login --web` でログインした。
+  インストール直後の既存ターミナルでは PATH が反映されないため、フルパス(`C:\Program Files\GitHub CLI\gh.exe`)で実行した。
+- ローカル用の `.env` は作っていない(スキップ)。ローカルで AI 提案を試すには `.env` に `GEMINI_API_KEY` が必要。

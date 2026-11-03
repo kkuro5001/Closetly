@@ -5,6 +5,10 @@ services:
       - "8080:8080"
     environment:
       - PYTHON_API_URL=http://python:8000
+      # コーデ提案用。GEMINI_API_KEY はリポジトリ直下の .env か環境変数で渡す(コミットしない)
+      - SUPABASE_URL=https://ensmryjkvsjkzoqotqlk.supabase.co
+      - SUPABASE_ANON_KEY=sb_publishable_yhV7od1v91co1DONIfs75g_GoLkndo3
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     depends_on:
       - python
 

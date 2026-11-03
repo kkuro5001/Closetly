@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../pages/home_page.dart';
 import '../pages/camera_page.dart';
 import '../pages/closet_page.dart';
+import '../pages/outfits_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -19,6 +20,7 @@ class _MainPageState extends State<MainPage> {
     const HomePage(),
     const CameraPage(),
     const ClosetPage(),
+    const OutfitsPage(),
   ];
 
   @override
@@ -28,6 +30,9 @@ class _MainPageState extends State<MainPage> {
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
+
+        // 4項目以上は fixed にしないとラベルが隠れる
+        type: BottomNavigationBarType.fixed,
 
         onTap: (index) {
           setState(() {
@@ -47,6 +52,10 @@ class _MainPageState extends State<MainPage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.checkroom),
             label: "クローゼット",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.style),
+            label: "コーデ",
           ),
         ],
       ),

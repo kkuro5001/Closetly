@@ -50,7 +50,7 @@ func corsMiddleware() gin.HandlerFunc {
 		if origin != "" && isAllowedOrigin(origin, allowed) {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-			c.Header("Access-Control-Allow-Headers", "Content-Type")
+			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		}
 
 		//プリフライトは本処理に進まず返す(許可外のオリジンは403)
@@ -76,6 +76,9 @@ func setupRouter() *gin.Engine {
 
 	//画像受け取り + Pythonへ転送
 	r.POST("/upload", UploadHandler)
+
+	//手持ちの服からGeminiにコーデを提案してもらう(要ログイン)
+	r.POST("/suggest-outfit", SuggestOutfitHandler)
 
 	r.GET("/test", TestHandler)
 

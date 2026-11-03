@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../constants/clothing_options.dart';
 import '../models/clothing.dart';
 import '../services/clothing_service.dart';
+import '../models/wear_log.dart';
 import '../services/storage_service.dart';
+import '../services/wear_log_service.dart';
+import '../utils/wear_stats.dart';
 
 class ClothingDetailPage extends StatefulWidget {
 
@@ -22,6 +25,7 @@ class _ClothingDetailPageState extends State<ClothingDetailPage> {
 
   final storageService = StorageService();
   final clothingService = ClothingService();
+  final wearLogService = WearLogService();
 
   bool isDeleting = false;
   bool isSaving = false;
@@ -31,6 +35,167 @@ class _ClothingDetailPageState extends State<ClothingDetailPage> {
 
   // 編集したかどうか(戻るときに一覧の再読み込みを促す)
   bool edited = false;
+
+  // 着用記録。読み込み失敗(テーブル未作成など)でも他の表示・操作は壊さず、着用欄だけエラーにする
+  List<WearLog> wearLogs = [];
+  bool wearLoading = true;
+  String? wearError;
+  bool isWearBusy = false; // 連打防止
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWearLogs();
+  }
+
+  Future<void> _loadWearLogs() async {
+
+    setState(() {
+      wearLoading = true;
+      wearError = null;
+    });
+
+    try {
+
+      final logs = await wearLogService.getWearLogsForClothing(clothing.id!);
+
+      if (!mounted) return;
+      setState(() {
+        wearLogs = logs;
+        wearLoading = false;
+      });
+
+    } catch (e) {
+
+      debugPrint("着用記録の取得に失敗: $e");
+
+      if (!mounted) return;
+      setState(() {
+        wearError = e.toString();
+        wearLoading = false;
+      });
+    }
+  }
+
+  // 今日(端末のローカル日付)の記録があるか
+  bool get _wornToday {
+    final today = dateOnly(DateTime.now());
+    return wearLogs.any((l) => l.wornOn == today);
+  }
+
+  // 「今日着た」の記録 / 取り消し
+  Future<void> _toggleWornToday() async {
+
+    if (isWearBusy) return;
+
+    final today = dateOnly(DateTime.now());
+    final cancel = _wornToday;
+
+    setState(() {
+      isWearBusy = true;
+    });
+
+    try {
+
+      if (cancel) {
+        await wearLogService.removeWear(clothing.id!, today);
+      } else {
+        await wearLogService.recordWear([clothing.id!], today);
+      }
+
+      final logs = await wearLogService.getWearLogsForClothing(clothing.id!);
+
+      if (!mounted) return;
+      setState(() {
+        wearLogs = logs;
+        wearError = null;
+        edited = true;
+        isWearBusy = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(cancel ? "今日の記録を取り消しました" : "今日着た記録を保存しました")),
+      );
+
+    } catch (e) {
+
+      debugPrint("着用記録の更新に失敗: $e");
+
+      if (!mounted) return;
+      setState(() {
+        isWearBusy = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("着用記録の更新に失敗しました: $e")),
+      );
+    }
+  }
+
+  Widget _buildWearSection() {
+
+    const titleStyle = TextStyle(fontSize: 20, fontWeight: FontWeight.bold);
+
+    if (wearLoading) {
+      return const Row(
+        children: [
+          Text("着用", style: titleStyle),
+          SizedBox(width: 12),
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ],
+      );
+    }
+
+    if (wearError != null) {
+      return Row(
+        children: [
+          const Expanded(
+            child: Text(
+              "着用記録を読み込めませんでした",
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadWearLogs,
+            child: const Text("再読み込み"),
+          ),
+        ],
+      );
+    }
+
+    final summary = summarizeWearLogs(wearLogs)[clothing.id];
+    final last = summary?.lastWornOn;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("着用", style: titleStyle),
+        const SizedBox(height: 6),
+        Text("着た回数: ${summary?.count ?? 0} 回", style: const TextStyle(fontSize: 18)),
+        const SizedBox(height: 4),
+        Text(
+          "最後に着た日: ${last == null ? "まだ着ていません" : _formatDate(last)}",
+          style: const TextStyle(fontSize: 18),
+        ),
+        const SizedBox(height: 8),
+        _wornToday
+            ? OutlinedButton.icon(
+                onPressed: isWearBusy ? null : _toggleWornToday,
+                icon: const Icon(Icons.undo),
+                label: const Text("今日の記録を取り消す"),
+              )
+            : ElevatedButton.icon(
+                onPressed: isWearBusy ? null : _toggleWornToday,
+                icon: const Icon(Icons.check),
+                label: const Text("今日着た"),
+              ),
+      ],
+    );
+  }
 
   Future<void> _edit() async {
 
@@ -174,7 +339,8 @@ class _ClothingDetailPageState extends State<ClothingDetailPage> {
         ],
       ),
 
-      body: Padding(
+      // 着用欄を足して縦に伸びたので、小さい画面でも溢れないようスクロール可能にする
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
 
         child: Column(
@@ -262,6 +428,10 @@ class _ClothingDetailPageState extends State<ClothingDetailPage> {
                 ),
               ),
             ],
+
+            const SizedBox(height: 16),
+
+            _buildWearSection(),
           ],
         ),
       ),

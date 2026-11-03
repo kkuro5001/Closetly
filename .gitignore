@@ -36,3 +36,6 @@ frontend/*.iml
 memo.md
 # ローカルの秘密情報(GEMINI_API_KEY など)
 .env
+
+# Claude Code の worktree
+.claude/worktrees/

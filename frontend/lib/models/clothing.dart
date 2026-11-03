@@ -16,6 +16,22 @@ class Clothing {
     this.createdAt,
   });
 
+  // 一部の項目だけ差し替えた新しいインスタンスを返す(画像パス・idなどは引き継ぐ)
+  Clothing copyWith({
+    String? category,
+    String? color,
+    String? season,
+  }) {
+    return Clothing(
+      id: id,
+      imagePath: imagePath,
+      category: category ?? this.category,
+      color: color ?? this.color,
+      season: season ?? this.season,
+      createdAt: createdAt,
+    );
+  }
+
   // Supabase保存用
   Map<String, dynamic> toMap() {
 

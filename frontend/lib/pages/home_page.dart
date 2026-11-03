@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/clothing.dart';
+import '../models/wear_log.dart';
 import '../services/clothing_service.dart';
 import '../services/storage_service.dart';
+import '../services/wear_log_service.dart';
 import '../utils/wardrobe_stats.dart';
+import '../utils/wear_stats.dart';
 import 'clothing_detail_page.dart';
 
 // ホーム画面: 登録数・カテゴリ別/色別の件数・今の季節の服を表示する
@@ -22,8 +25,12 @@ class _HomePageState extends State<HomePage> {
 
   final clothingService = ClothingService();
   final storageService = StorageService();
+  final wearLogService = WearLogService();
 
   List<Clothing> clothes = [];
+  // 着用記録は服とは別に読む。失敗しても他のカードは表示し、着用カードだけエラーにする
+  List<WearLog> wearLogs = [];
+  String? wearError;
   bool isLoading = true;
   String? errorMessage;
 
@@ -45,9 +52,20 @@ class _HomePageState extends State<HomePage> {
       final result = await clothingService.getAllClothing();
       debugPrint("===== ホーム: 服を${result.length}件取得 =====");
 
+      List<WearLog> logs = [];
+      String? wearErr;
+      try {
+        logs = await wearLogService.getAllWearLogs();
+      } catch (e) {
+        debugPrint("ホーム: 着用記録の取得に失敗: $e");
+        wearErr = e.toString();
+      }
+
       if (!mounted) return;
       setState(() {
         clothes = result;
+        wearLogs = logs;
+        wearError = wearErr;
         isLoading = false;
       });
 
@@ -141,6 +159,10 @@ class _HomePageState extends State<HomePage> {
           _buildBreakdown("色別", countByColor(clothes)),
           const SizedBox(height: 16),
           _buildSeasonal(season, seasonal),
+          const SizedBox(height: 16),
+          _buildStale(),
+          const SizedBox(height: 16),
+          _buildFrequent(),
         ],
       ),
     );
@@ -256,6 +278,126 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // 着用カード共通の枠(タイトル + 本文)
+  Widget _wearCard(String title, String note, Widget body) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              note,
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            body,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _wearErrorBody() {
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            "着用記録を読み込めませんでした",
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+        TextButton(onPressed: loadClothes, child: const Text("再読み込み")),
+      ],
+    );
+  }
+
+  // 横スクロールのサムネイル列。labelFor が文字列を返せば画像の下に表示する
+  Widget _thumbnailRow<T>(
+    List<T> items,
+    Clothing Function(T) clothingOf,
+    String Function(T) labelOf,
+  ) {
+    return SizedBox(
+      height: 150,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return SizedBox(
+            width: 100,
+            child: Column(
+              children: [
+                Expanded(child: _buildThumbnail(clothingOf(item))),
+                const SizedBox(height: 4),
+                Text(
+                  labelOf(item),
+                  style: const TextStyle(fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStale() {
+
+    const title = "しばらく着ていない服(30日以上)";
+    const note = "最後に着た日(未着用は登録日)から30日以上経った服";
+
+    if (wearError != null) {
+      return _wearCard(title, note, _wearErrorBody());
+    }
+
+    final stale = staleClothes(clothes, wearLogs, DateTime.now());
+
+    return _wearCard(
+      title,
+      note,
+      stale.isEmpty
+          ? const Text("該当する服がありません")
+          : _thumbnailRow<StaleEntry>(
+              stale,
+              (e) => e.clothing,
+              (e) => e.days == null ? "記録なし" : "${e.days}日前",
+            ),
+    );
+  }
+
+  Widget _buildFrequent() {
+
+    const title = "よく着る服";
+    const note = "着た回数が多い順(上位5着)";
+
+    if (wearError != null) {
+      return _wearCard(title, note, _wearErrorBody());
+    }
+
+    final frequent = frequentClothes(clothes, wearLogs);
+
+    return _wearCard(
+      title,
+      note,
+      frequent.isEmpty
+          ? const Text("まだ着用の記録がありません")
+          : _thumbnailRow<FrequentEntry>(
+              frequent,
+              (e) => e.clothing,
+              (e) => "${e.count}回",
+            ),
+    );
+  }
+
   Widget _buildThumbnail(Clothing clothing) {
     return GestureDetector(
       onTap: () async {
@@ -265,7 +407,7 @@ class _HomePageState extends State<HomePage> {
             builder: (context) => ClothingDetailPage(clothing: clothing),
           ),
         );
-        // 詳細画面で削除されたら再取得する
+        // 詳細画面で削除・編集・着用記録をしたら再取得する
         if (deleted == true) {
           loadClothes();
         }

@@ -504,6 +504,9 @@ Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開�
 ## AI コーデ提案の「Failed to fetch」 (2026-11-04)
 - 本番で AI 提案が「Failed to fetch」になる件を調べた。Go が Gemini の失敗で返す 502 を Cloudflare が自前のエラーページに差し替え、CORS ヘッダーが消えていた。
   詳細は `outfit-ai-suggest.md` の「本番で「Failed to fetch」になる問題」。
-- Go を 500 / 429 で返すように直し、Flutter に 429 のメッセージを追加した(未コミット・未デプロイ)。
+- Go を 500 / 429 で返すように直し、Flutter に 429 / 500 のメッセージを追加した。
+- PR #26 をマージ (`43b9dd2`)。master の CI・CD とも成功(2026-11-04 01:13 UTC、go / python / frontend の3つとも反映)。
+  デプロイ後、トークンなしの POST が `401` + CORS ヘッダーで返ることを確認(Gemini は呼ばない確認だけ)。
+  Cloudflare が 500 / 429 を差し替えずに通すかは、Gemini の無料枠を使わないため未確認(次に実際に失敗したときに確かめる)。
 - 調べ方: claude-in-chrome で本番サイトを開き、ページ上から testuser のトークンで `fetch` を繰り返して再現 → curl で失敗した回のヘッダーを確認。
   ブラウザのネットワーク一覧ツールでは失敗したリクエストの中身が見えず、ページの JS を長く待たせるとタイムアウトしたので、結果を `window` に貯めて後で読む形にした。

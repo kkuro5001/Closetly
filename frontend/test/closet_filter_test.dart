@@ -86,6 +86,16 @@ void main() {
     expect(ids(cleared.apply(items)), [1, 2, 3, 4, 5]);
   });
 
+  test('activeFilterCountは選択中の値の合計(並び順は数えない)', () {
+    expect(const ClosetFilter(sort: ClosetSort.oldest).activeFilterCount, 0);
+    const f = ClosetFilter(
+      categories: {'Tシャツ', 'パンツ'},
+      seasons: {'夏'},
+      colors: {'黒'},
+    );
+    expect(f.activeFilterCount, 4);
+  });
+
   test('元のリストを変更しない', () {
     final before = ids(items);
     const ClosetFilter(sort: ClosetSort.oldest).apply(items);

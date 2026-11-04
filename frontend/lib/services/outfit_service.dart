@@ -122,6 +122,11 @@ class OutfitService {
         return "提案するには服を2着以上登録してください";
       case 401:
         return "ログインし直してください";
+      case 429:
+        return "AIの利用回数の上限に達しました。少し待ってから試してください";
+      case 500:
+        // Gemini の一時的な過負荷(503)などもここに来る
+        return "AIの提案を取得できませんでした。時間をおいて試してください";
       case 503:
         return "AI提案はまだ設定されていません";
       default:

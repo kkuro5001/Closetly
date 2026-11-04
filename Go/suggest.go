@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +32,13 @@ const maxSceneLength = 200
 const maxSuggestions = 3
 
 var suggestHTTPClient = &http.Client{Timeout: 60 * time.Second}
+
+// Gemini の回数制限(無料枠の1分あたり・1日あたりの上限)に当たったとき
+var errGeminiRateLimited = errors.New("gemini rate limited")
+
+// 502/504 は Cloudflare が自前のエラーページに差し替え、CORS ヘッダーが消えて
+// ブラウザでは「Failed to fetch」になるため、外部サービスの失敗は 500 で返す
+const statusUpstreamFailed = 500
 
 type suggestRequest struct {
 	Scene  string `json:"scene"`
@@ -122,7 +130,7 @@ func SuggestOutfitHandler(c *gin.Context) {
 	clothes, err := fetchClothes(cfg, token)
 	if err != nil {
 		fmt.Println("服の取得に失敗:", err)
-		c.JSON(502, gin.H{"error": "failed to load clothes"})
+		c.JSON(statusUpstreamFailed, gin.H{"error": "failed to load clothes"})
 		return
 	}
 	if len(clothes) < 2 {
@@ -133,7 +141,11 @@ func SuggestOutfitHandler(c *gin.Context) {
 	suggestions, err := askGemini(cfg, clothes, req)
 	if err != nil {
 		fmt.Println("Gemini の呼び出しに失敗:", err)
-		c.JSON(502, gin.H{"error": "failed to get suggestions"})
+		if errors.Is(err, errGeminiRateLimited) {
+			c.JSON(429, gin.H{"error": "too many requests, try again later"})
+			return
+		}
+		c.JSON(statusUpstreamFailed, gin.H{"error": "failed to get suggestions"})
 		return
 	}
 
@@ -281,6 +293,9 @@ func askGemini(cfg suggestConfig, clothes []clothingTag, req suggestRequest) ([]
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode == 429 {
+		return nil, fmt.Errorf("%w: %s", errGeminiRateLimited, truncate(string(respBody), 300))
 	}
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("gemini returned HTTP %d: %s", resp.StatusCode, truncate(string(respBody), 300))

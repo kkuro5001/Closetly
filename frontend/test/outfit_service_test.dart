@@ -49,8 +49,10 @@ void main() {
   for (final c in {
     400: '2着以上',
     401: 'ログインし直して',
+    429: '上限に達しました',
     503: '設定されていません',
-    500: 'HTTP 500',
+    500: '時間をおいて',
+    504: 'HTTP 504',
   }.entries) {
     test('HTTP ${c.key} のエラーメッセージ', () async {
       final client = MockClient((request) async => http.Response('x', c.key));

@@ -163,13 +163,24 @@ func TestSuggestRejectsLongScene(t *testing.T) {
 	}
 }
 
-func TestSuggestGeminiError(t *testing.T) {
+func TestSuggestGeminiRateLimited(t *testing.T) {
 	sb := fakeSupabase(t, "good", twoClothes)
 	gm := fakeGemini(t, 429, `{}`, nil)
 	setSuggestEnv(t, sb.URL, gm.URL)
 
-	if rec := postSuggest(t, "Bearer good", `{}`); rec.Code != 502 {
-		t.Errorf("status = %d, want 502", rec.Code)
+	if rec := postSuggest(t, "Bearer good", `{}`); rec.Code != 429 {
+		t.Errorf("status = %d, want 429", rec.Code)
+	}
+}
+
+// 502 は Cloudflare に差し替えられて CORS ヘッダーが消えるので返さない
+func TestSuggestGeminiError(t *testing.T) {
+	sb := fakeSupabase(t, "good", twoClothes)
+	gm := fakeGemini(t, 503, `{}`, nil)
+	setSuggestEnv(t, sb.URL, gm.URL)
+
+	if rec := postSuggest(t, "Bearer good", `{}`); rec.Code != 500 {
+		t.Errorf("status = %d, want 500", rec.Code)
 	}
 }
 

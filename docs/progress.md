@@ -1,11 +1,37 @@
-# 作業状況メモ (2026-10-29 完了・本番で動作確認済み)
+# 作業状況メモ
 
-「写真から服の色を解析して色欄に自動入力する」機能の進み具合。
-設計や問題の詳細は [color-autofill.md](color-autofill.md) を参照。
+時系列の作業記録。下に行くほど新しい。古い節の「残っていること」などは当時のままなので、今の状態は次の「現在の状態」を見る。
+各機能の設計や問題の詳細は [color-autofill.md](color-autofill.md) / [clothing-edit.md](clothing-edit.md) /
+[closet-filter.md](closet-filter.md) / [home-dashboard.md](home-dashboard.md) を参照。
+
+## 現在の状態 (2026-10-30 時点)
+### 本番で動いているもの (master `609319d`, PR #23 まで)
+| 機能 | PR | 状態 |
+| --- | --- | --- |
+| 色の自動入力 (Go → Python の OpenCV 色解析) | #14 | 本番で動作確認済み |
+| フロントのキャッシュ設定 (nginx の no-cache) | #15 | 本番で確認済み(次のデプロイからパージ不要) |
+| CD 後の古いイメージ削除 (`docker image prune -f`) | #16 | 反映済み |
+| Go の CORS を `CORS_ALLOWED_ORIGINS` で絞る | #18 | 本番で確認済み(下記) |
+| カテゴリ・季節の選択肢の共通化 | #19 | 反映済み |
+| クローゼットの絞り込み・並び替え | #20 | デプロイ済み・画面は未確認 |
+| ホーム画面(登録数・集計・今の季節の服) | #21 | デプロイ済み・画面は未確認 |
+| 服の編集(カテゴリ・色・季節) | #22 | デプロイ済み・画面は未確認 |
+
+- PR #23(docs の更新)のマージ後も、master の CI と CD は成功(2026-10-29 07:30 UTC)。
+- 本番の CORS (2026-10-30 確認): `Origin: https://closetly.kkuro.com` のプリフライトは `204` +
+  `access-control-allow-origin: https://closetly.kkuro.com`、関係ないオリジンは `403`。
+
+### 残っていること
+- 編集・絞り込み・ホーム画面のブラウザ/実機での画面確認と、本番の Supabase での編集(update ポリシー)の動作確認
+- スマホ実機での確認(全機能)
+- 色名の判定しきい値 (HSV) を実際の服の写真で検証する
+- 既存の `flutter analyze` の指摘2件 (`lib/main.dart`) は未対応
+- (任意) CD が PR の CI の完了でも動いてしまう件(下記「本番への反映結果」の補足)
+- (任意) `no-store` を外して `no-cache` だけにする改善(下記「本番への反映結果」)
 
 ## 進捗: 完了(Docker での通し確認まで済み、push 済み)
 
-## ブランチ / 作業場所
+## ブランチ / 作業場所(2026-10-29 当時。すべて master にマージ済み)
 - `feature/keep-supabase`: Python の色解析 (`4215997`) まで commit・push 済み
 - worktree `.claude/worktrees/agent-a14bcde4850f99738`(ブランチ `worktree-agent-a14bcde4850f99738`)で残りを実装中。**未 push**
   - `a3b5336` 撮影した写真から色を自動入力する機能を追加 (Sonnet が実装)
@@ -28,7 +54,7 @@
 - `flutter analyze` → 2件(既存の `lib/main.dart` の指摘で今回の変更とは無関係)
 - CI/CD・docker-compose の YAML 構文 → 問題なし(実際の GitHub Actions 実行は未確認)
 
-## 残っていること
+## 残っていること(当時。1〜2 は対応済み → 下記「再開後の結果」、3 はブラウザのみ確認済み)
 1. **Docker での通し確認(実行中)**
    - Docker Desktop を起動し `docker compose up --build -d go python` を実行
    - Go のイメージはビルド完了、Python のイメージ(ultralytics / torch を含むため大きい)は 10 分以上かかってビルド中
@@ -42,10 +68,10 @@
 3. 未確認: ブラウザ・実機での画面操作
 
 ## 本番に出す前に必要なこと
-- GitHub の `vars.API_BASE_URL` に、ブラウザから届く Go サーバーのアドレスを設定する(未設定だと自動入力が動かず色欄が空のまま)
-- フロントを HTTPS で配信する場合、Go も HTTPS にしないとブラウザに通信を止められる(mixed-content)
-- 色名の判定しきい値は実際の服の写真でまだ検証していない
-- CORS が `*`(全オリジン許可)なので、本番では許可するオリジンを絞ることを検討
+- ~~GitHub の `vars.API_BASE_URL` に、ブラウザから届く Go サーバーのアドレスを設定する~~ → `https://closetly-go.kkuro.com` を設定済み
+- ~~フロントを HTTPS で配信する場合、Go も HTTPS にしないとブラウザに通信を止められる(mixed-content)~~ → Go も `https://closetly-go.kkuro.com` で HTTPS 配信
+- 色名の判定しきい値は実際の服の写真でまだ検証していない(未対応)
+- ~~CORS が `*`(全オリジン許可)なので、本番では許可するオリジンを絞ることを検討~~ → PR #18 で `CORS_ALLOWED_ORIGINS` により限定済み
 
 ## 一時停止 (2026-10-29)
 ユーザーの指示で、Docker での通し確認の途中で作業を止めた。
@@ -376,6 +402,18 @@
 ### 未確認
 - 3つとも、ブラウザ・実機での画面確認と、本番の Supabase での編集(更新)の動作は未確認。
 
+## docs を最新の状態に合わせる (2026-10-30)
+- master を pull (`a94ef10` → `609319d`、PR #22 / #23)。
+- **問題**: 手元に未コミットの `CLAUDE.md` / `supabase/clothes_table.sql` の変更があり、pull が「上書きされる」として止まった。
+  中身を比べると PR #23 で入った内容の古い版(SQL はポリシーの並び順の違いだけ)だったため、`git stash` で退避してから pull した。
+  stash は消さずに残してある(不要なら `git stash drop`)。
+- 古くなっていた記述を直した:
+  - `progress.md` の先頭に「現在の状態」(本番に出ている機能・残っていること)を追加し、当時の「残っていること」「本番に出す前に必要なこと」に対応済みの印を付けた。
+  - `color-autofill.md` の「未解決事項」のうち、`API_BASE_URL` 未設定・mixed-content・CORS `*` を対応済みにした。
+  - 過去の記録は消さず、取り消し線と「→ 対応済み」で残した(なぜそうなったかを後から追えるようにするため)。
+- 本番の CORS を確認: 許可オリジン `https://closetly.kkuro.com` は `204`、関係ないオリジンは `403`。
+- (2026-11-04 追記) この節と先頭の「現在の状態」・`color-autofill.md` の修正は、コミットされないまま手元に残っていた。
+
 ## 着用記録・コーディネート・AIコーデ提案 (2026-11-03)
 ユーザーの依頼: 「着用記録(最近着ていない服)」と「コーディネート(Gemini API で提案)」を追加したい。
 Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開発する。Supabase の設定は、ユーザーと会話する案内役の CLI を別に立てて並行して進める。
@@ -441,3 +479,31 @@ Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開�
 - **`gh` が入っていなかった**: PR 作成時に `gh` が無かったため、`winget install GitHub.cli` で入れ、ユーザーが `gh auth login --web` でログインした。
   インストール直後の既存ターミナルでは PATH が反映されないため、フルパス(`C:\Program Files\GitHub CLI\gh.exe`)で実行した。
 - ローカル用の `.env` は作っていない(スキップ)。ローカルで AI 提案を試すには `.env` に `GEMINI_API_KEY` が必要。
+
+## master を pull (2026-11-04)
+- `609319d` → `6dcb692`(PR #24 / #25: 着用記録・コーデ・AI 提案、ディスク・CORS の経緯)。
+- **問題**: 前回(2026-10-30)の docs の修正(`progress.md` / `color-autofill.md`)が未コミットのまま残っており、pull が止まった。
+  origin には入っていない内容だったので `git stash` → pull → `git stash pop` で戻した。
+- `progress.md` の末尾で衝突した(双方が末尾に節を追加していた)。両方残し、日付順(10-30 の節 → 11-03 の節)に並べて解消した。
+- 先頭の「現在の状態」は 2026-10-30 時点のままで、PR #24 / #25 はまだ反映していない。
+
+## テスト画像で色判定の検証と、testuser への登録 (2026-11-04)
+ユーザーの依頼: 画像をたくさん入れてどんな色が認識されるか見たい、いろいろな種類の服でコーデを試したい。
+- 画像は既に `origin/testdata/clothes-images` ブランチ(34枚 + `manifest.csv` + クレジットの README)にあったので、それを使った(master にはマージしていない)。
+- **色判定**: `color_analyzer.py` を直接34枚にかけ、正解と比べた。一致19 / 近い7 / 外れ8。詳細と傾向は `color-autofill.md` の「テスト画像34枚での色判定の検証」。
+  結果は写真付きのページ(claude.ai の非公開 Artifact)にまとめた。
+- **コーデ用の登録**: ログイン画面の「テストユーザーでログイン」のアカウント(`test@gmail.com`)に、34枚を Storage(`{uid}/original/testdata-NN.jpg`)と
+  `clothes` に登録した。カテゴリ・季節は manifest のもの、色は今回の自動判定の結果(正解ではない)。Supabase の REST API を Python から直接呼ぶ一時スクリプトで登録した。
+  - 登録前に既存の件数を確認する「確認だけ」の実行を先にした(既存4件)。登録後は38件、署名付き URL で画像が取れることを確認。
+  - 後で消すときは `image_path` が `testdata-` で始まるものを、Storage と `clothes` の両方から消す(DB の制約でつながっていないため)。
+- **問題**:
+  - ユーザーの回答が「いつものアカウント」と「testuser で試したい」の2つで少し食い違っていた。testuser を普段使っていると解釈して testuser に入れた。
+  - Windows で Python の標準出力が cp932 になり日本語が文字化けした。`python -X utf8` で UTF-8 にして解決。
+- **未確認**: 実際のアプリ画面でのクローゼット表示・コーデ作成・AI コーデ提案(Gemini)は、まだ試していない(ユーザーが試す)。
+
+## AI コーデ提案の「Failed to fetch」 (2026-11-04)
+- 本番で AI 提案が「Failed to fetch」になる件を調べた。Go が Gemini の失敗で返す 502 を Cloudflare が自前のエラーページに差し替え、CORS ヘッダーが消えていた。
+  詳細は `outfit-ai-suggest.md` の「本番で「Failed to fetch」になる問題」。
+- Go を 500 / 429 で返すように直し、Flutter に 429 のメッセージを追加した(未コミット・未デプロイ)。
+- 調べ方: claude-in-chrome で本番サイトを開き、ページ上から testuser のトークンで `fetch` を繰り返して再現 → curl で失敗した回のヘッダーを確認。
+  ブラウザのネットワーク一覧ツールでは失敗したリクエストの中身が見えず、ページの JS を長く待たせるとタイムアウトしたので、結果を `window` に貯めて後で読む形にした。

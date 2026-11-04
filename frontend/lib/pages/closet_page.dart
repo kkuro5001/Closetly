@@ -90,7 +90,221 @@ class _ClosetPageState
     return next;
   }
 
-  Widget _buildChipRow(
+  static const _sortLabels = {
+    ClosetSort.newest: "新しい順",
+    ClosetSort.oldest: "古い順",
+    ClosetSort.category: "カテゴリ順",
+  };
+
+  void _updateFilter(ClosetFilter next) {
+    setState(() {
+      filter = next;
+    });
+  }
+
+  // 絞り込みボタン・並び順・件数を1行にまとめ、選択中の条件は下に×付きチップで表示する
+  Widget _buildFilterBar(int visibleCount) {
+    final scheme = Theme.of(context).colorScheme;
+    final activeCount = filter.activeFilterCount;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Badge(
+                isLabelVisible: activeCount > 0,
+                label: Text("$activeCount"),
+                child: OutlinedButton.icon(
+                  onPressed: _openFilterSheet,
+                  icon: const Icon(Icons.tune),
+                  label: const Text("絞り込み"),
+                ),
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<ClosetSort>(
+                tooltip: "並び順",
+                initialValue: filter.sort,
+                onSelected: (value) =>
+                    _updateFilter(filter.copyWith(sort: value)),
+                itemBuilder: (context) => [
+                  for (final entry in _sortLabels.entries)
+                    CheckedPopupMenuItem(
+                      value: entry.key,
+                      checked: filter.sort == entry.key,
+                      child: Text(entry.value),
+                    ),
+                ],
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.sort, size: 20, color: scheme.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        _sortLabels[filter.sort]!,
+                        style: TextStyle(color: scheme.primary),
+                      ),
+                      Icon(Icons.arrow_drop_down, color: scheme.primary),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                filter.hasActiveFilter
+                    ? "$visibleCount / ${clothes.length}着"
+                    : "${clothes.length}着",
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+          if (filter.hasActiveFilter)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (final v in filter.categories)
+                    _activeChip(v, () => _updateFilter(filter.copyWith(
+                          categories: _toggle(filter.categories, v, false),
+                        ))),
+                  for (final v in filter.seasons)
+                    _activeChip(v, () => _updateFilter(filter.copyWith(
+                          seasons: _toggle(filter.seasons, v, false),
+                        ))),
+                  for (final v in filter.colors)
+                    _activeChip(v, () => _updateFilter(filter.copyWith(
+                          colors: _toggle(filter.colors, v, false),
+                        ))),
+                  TextButton(
+                    onPressed: () => _updateFilter(filter.clearFilters()),
+                    child: const Text("すべて解除"),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // 選択中の条件。×で個別に外せる
+  Widget _activeChip(String label, VoidCallback onDeleted) {
+    return InputChip(
+      label: Text(label),
+      onDeleted: onDeleted,
+      deleteButtonTooltipMessage: "「$label」を外す",
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  // 絞り込み条件を選ぶボトムシート。
+  // 選んだ瞬間に後ろの一覧にも反映する(「適用」を押し忘れて条件が消えることがないように)
+  Future<void> _openFilterSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            void change(ClosetFilter next) {
+              _updateFilter(next);
+              setSheetState(() {});
+            }
+
+            final visibleCount = filter.apply(clothes).length;
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(sheetContext).size.height * 0.8,
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Text(
+                            "絞り込み",
+                            style: Theme.of(sheetContext).textTheme.titleLarge,
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: filter.hasActiveFilter
+                                ? () => change(filter.clearFilters())
+                                : null,
+                            child: const Text("すべて解除"),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _sheetSection(
+                              "種類",
+                              availableCategories(clothes),
+                              filter.categories,
+                              (v, sel) => change(filter.copyWith(
+                                categories: _toggle(filter.categories, v, sel),
+                              )),
+                            ),
+                            _sheetSection(
+                              "季節",
+                              availableSeasons(clothes),
+                              filter.seasons,
+                              (v, sel) => change(filter.copyWith(
+                                seasons: _toggle(filter.seasons, v, sel),
+                              )),
+                            ),
+                            _sheetSection(
+                              "色",
+                              availableColors(clothes),
+                              filter.colors,
+                              (v, sel) => change(filter.copyWith(
+                                colors: _toggle(filter.colors, v, sel),
+                              )),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: Text("$visibleCount着を表示"),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ボトムシート内の1項目。折り返し表示なので横スクロール不要(Webのマウス操作でも全部見える)
+  Widget _sheetSection(
     String label,
     List<String> options,
     Set<String> selected,
@@ -99,107 +313,24 @@ class _ClosetPageState
     if (options.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 40,
-            child: Text(label, style: const TextStyle(color: Colors.grey)),
-          ),
-          Expanded(
-            child: SizedBox(
-              height: 40,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  for (final option in options)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(option),
-                        selected: selected.contains(option),
-                        onSelected: (value) => onChanged(option, value),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildChipRow(
-            "種類",
-            availableCategories(clothes),
-            filter.categories,
-            (v, sel) => setState(() {
-              filter = filter.copyWith(
-                categories: _toggle(filter.categories, v, sel),
-              );
-            }),
+          Text(
+            selected.isEmpty ? label : "$label(${selected.length})",
+            style: Theme.of(context).textTheme.titleSmall,
           ),
-          _buildChipRow(
-            "季節",
-            availableSeasons(clothes),
-            filter.seasons,
-            (v, sel) => setState(() {
-              filter = filter.copyWith(
-                seasons: _toggle(filter.seasons, v, sel),
-              );
-            }),
-          ),
-          _buildChipRow(
-            "色",
-            availableColors(clothes),
-            filter.colors,
-            (v, sel) => setState(() {
-              filter = filter.copyWith(
-                colors: _toggle(filter.colors, v, sel),
-              );
-            }),
-          ),
-          Row(
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              const Text("並び順", style: TextStyle(color: Colors.grey)),
-              const SizedBox(width: 8),
-              DropdownButton<ClosetSort>(
-                value: filter.sort,
-                underline: const SizedBox.shrink(),
-                items: const [
-                  DropdownMenuItem(
-                    value: ClosetSort.newest,
-                    child: Text("新しい順"),
-                  ),
-                  DropdownMenuItem(
-                    value: ClosetSort.oldest,
-                    child: Text("古い順"),
-                  ),
-                  DropdownMenuItem(
-                    value: ClosetSort.category,
-                    child: Text("カテゴリ順"),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() {
-                    filter = filter.copyWith(sort: value);
-                  });
-                },
-              ),
-              const Spacer(),
-              if (filter.hasActiveFilter)
-                TextButton(
-                  onPressed: () => setState(() {
-                    filter = filter.clearFilters();
-                  }),
-                  child: const Text("絞り込みを解除"),
+              for (final option in options)
+                FilterChip(
+                  label: Text(option),
+                  selected: selected.contains(option),
+                  onSelected: (value) => onChanged(option, value),
                 ),
             ],
           ),
@@ -266,7 +397,7 @@ class _ClosetPageState
 
     return Column(
       children: [
-        _buildFilterBar(),
+        _buildFilterBar(visible.length),
         Expanded(
           child: visible.isEmpty
               ? _buildNoMatch()

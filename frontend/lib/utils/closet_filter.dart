@@ -27,6 +27,10 @@ class ClosetFilter {
   bool get hasActiveFilter =>
       categories.isNotEmpty || seasons.isNotEmpty || colors.isNotEmpty;
 
+  // 選択中の絞り込み条件の数(絞り込みボタンのバッジ表示用)
+  int get activeFilterCount =>
+      categories.length + seasons.length + colors.length;
+
   ClosetFilter copyWith({
     Set<String>? categories,
     Set<String>? seasons,

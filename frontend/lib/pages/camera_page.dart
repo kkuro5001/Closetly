@@ -178,6 +178,19 @@ class _CameraPageState extends State<CameraPage> {
       debugPrint("保存完了");
 
       if (mounted) {
+        // 同じ写真を二重登録しないよう、写真と色はクリアして次の1着を登録できる状態に戻す。
+        // カテゴリ・季節は続けて似た服を登録しやすいよう残す
+        setState(() {
+          image = null;
+          pickedFileName = null;
+          colorController.clear();
+          // 解析中の結果が後から入らないよう番号を進める
+          _colorRequestId++;
+          isAnalyzingColor = false;
+        });
+      }
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("服を保存しました"),
@@ -211,83 +224,97 @@ class _CameraPageState extends State<CameraPage> {
   }
 
   @override
+  void dispose() {
+    colorController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
 
-    debugPrint("===== build実行 =====");
+    final hasImage = image != null;
 
     return Scaffold(
 
       appBar: AppBar(
-        title: const Text("Camera"),
+        title: const Text("服を登録"),
       ),
 
+      // 保存ボタンは画面下に固定(入力欄をスクロールしても常に押せる)
+      bottomNavigationBar: hasImage
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton.icon(
+                  onPressed: isSaving ? null : saveClothing,
+                  icon: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check),
+                  label: Text(isSaving ? "保存中..." : "クローゼットに保存"),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
+                ),
+              ),
+            )
+          : null,
+
       body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+          // Webの広い画面で入力欄が横に伸びすぎないよう幅を制限
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
 
-                // 撮影画像
-                if (image != null)
-                  Image.memory(
-                    image!,
-                    height: 300,
-                  ),
-
-                const SizedBox(height: 20),
-
-                // 撮影・追加ボタン
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton(
-                      onPressed: takePhoto,
-                      child: const Text("写真を撮る"),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: pickFromGallery,
-                      child: const Text("写真を追加"),
-                    ),
-                  ],
-                ),
+                hasImage ? _buildPreview() : _buildPickPlaceholder(),
 
                 // 服の情報入力
-                if (image != null) ...[
+                if (hasImage) ...[
+
+                  const SizedBox(height: 24),
+
+                  _sectionTitle("カテゴリ"),
+                  _buildChoiceChips(
+                    categoryOptions,
+                    selectedCategory,
+                    (value) => setState(() {
+                      selectedCategory = value;
+                    }),
+                  ),
 
                   const SizedBox(height: 20),
 
-                  // カテゴリ選択
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedCategory,
-                    decoration: const InputDecoration(
-                      labelText: "カテゴリ",
-                      border: OutlineInputBorder(),
-                    ),
-                    items: categoryOptions
-                        .map((c) => DropdownMenuItem(
-                              value: c,
-                              child: Text(c),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
+                  _sectionTitle("季節"),
+                  _buildChoiceChips(
+                    seasonOptions,
+                    selectedSeason,
+                    (value) {
+                      debugPrint("季節変更: $value");
                       setState(() {
-                        selectedCategory = value!;
+                        selectedSeason = value;
                       });
                     },
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 20),
 
-                  // 色入力
+                  _sectionTitle("色"),
                   TextField(
                     controller: colorController,
                     decoration: InputDecoration(
-                      labelText: "色",
+                      hintText: "例: 黒、ネイビー",
+                      helperText: isAnalyzingColor
+                          ? "写真から色を判定中…"
+                          : "写真から自動で入力されます(変更できます)",
                       border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.palette_outlined),
                       // 解析中は小さなインジケーターを表示
                       suffixIcon: isAnalyzingColor
                           ? const Padding(
@@ -303,43 +330,119 @@ class _CameraPageState extends State<CameraPage> {
                           : null,
                     ),
                   ),
-
-                  const SizedBox(height: 20),
-
-                  // 季節選択
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedSeason,
-                    decoration: const InputDecoration(
-                      labelText: "季節",
-                      border: OutlineInputBorder(),
-                    ),
-                    items: seasonOptions
-                        .map((s) => DropdownMenuItem(
-                              value: s,
-                              child: Text(s),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      debugPrint("季節変更: $value");
-                      setState(() {
-                        selectedSeason = value!;
-                      });
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // 保存ボタン（Supabaseへのアップロード＋登録を一括で行う）
-                  ElevatedButton(
-                    onPressed: isSaving ? null : saveClothing,
-                    child: Text(isSaving ? "保存中..." : "保存"),
-                  ),
                 ],
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  // 写真が未選択のとき: 大きな枠の中に「撮る / 選ぶ」を並べる
+  Widget _buildPickPlaceholder() {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Text(
+            "登録する服の写真を用意しましょう",
+            style: Theme.of(context).textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "服だけが写るように撮ると色の判定が正確になります",
+            style: TextStyle(color: scheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              FilledButton(
+                onPressed: takePhoto,
+                child: const Text("写真を撮る"),
+              ),
+              OutlinedButton(
+                onPressed: pickFromGallery,
+                child: const Text("アルバムから選ぶ"),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 写真を選択済みのとき: プレビューと、撮り直し/選び直しボタン
+  Widget _buildPreview() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: ColoredBox(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: Image.memory(
+              image!,
+              height: 320,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton(
+              onPressed: isSaving ? null : takePhoto,
+              child: const Text("撮り直す"),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: isSaving ? null : pickFromGallery,
+              child: const Text("別の写真を選ぶ"),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionTitle(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(text, style: Theme.of(context).textTheme.titleSmall),
+    );
+  }
+
+  // ドロップダウンを開かずに1タップで選べるよう、選択肢をすべてチップで並べる
+  Widget _buildChoiceChips(
+    List<String> options,
+    String selected,
+    ValueChanged<String> onSelected,
+  ) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final option in options)
+          ChoiceChip(
+            label: Text(option),
+            selected: option == selected,
+            onSelected: (_) => onSelected(option),
+          ),
+      ],
     );
   }
 }

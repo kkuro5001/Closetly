@@ -514,5 +514,5 @@ Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開�
 ## 服のサイズを追加 (2026-11-06)
 ユーザーの依頼: 服の追加の時も、管理(編集)の時もサイズを入れられるようにしたい。
 - `clothes` に任意の `size text` を追加し、登録画面・編集ダイアログ・詳細・クローゼットのカードに反映した。詳細は `clothing-size.md`。
-- **要対応**: 本番DBで `supabase/migrations/add_clothes_size.sql` を実行してからフロントをデプロイする(実行前だと編集の保存が失敗する。サイズ空欄の登録は動く)。
+- 本番DBで `supabase/migrations/add_clothes_size.sql` を実行済み(2026-11-06、ユーザーが SQL Editor で実行)。フロントのデプロイより先に実行する必要があった(実行前だと編集の保存が失敗する。サイズ空欄の登録は動く)。
 - **問題**: 大きな問題はなし。`flutter analyze` の `main.dart` の2件(未使用 import、`anonKey` 非推奨)は以前からあるもので、今回は触っていない。

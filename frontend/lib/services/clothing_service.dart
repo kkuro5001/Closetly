@@ -14,15 +14,17 @@ class ClothingService {
     await _supabase.from(_table).insert(clothing.toMap());
   }
 
-  // 服のカテゴリ・色・季節を更新(画像は変更しない)
+  // 服のカテゴリ・色・季節・サイズを更新(画像は変更しない)。
+  // size が null ならサイズを未設定に戻す
   Future<void> updateClothing(
     int id, {
     required String category,
     required String color,
     required String season,
+    required String? size,
   }) async {
 
-    debugPrint("服を更新: id=$id category=$category color=$color season=$season");
+    debugPrint("服を更新: id=$id category=$category color=$color season=$season size=$size");
 
     final rows = await _supabase
         .from(_table)
@@ -30,6 +32,7 @@ class ClothingService {
           'category': category,
           'color': color,
           'season': season,
+          'size': size,
         })
         .eq('id', id)
         .select();

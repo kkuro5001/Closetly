@@ -554,16 +554,22 @@ class _ClosetPageState
                           height: 4,
                         ),
 
-                        // 季節
+                        // 季節(サイズがあれば併記)
                         Text(
 
-                          clothing.season,
+                          clothing.size == null
+                              ? clothing.season
+                              : "${clothing.season} · ${clothing.size}",
 
                           style:
                               const TextStyle(
                             color:
                                 Colors.grey,
                           ),
+
+                          overflow:
+                              TextOverflow
+                                  .ellipsis,
                         ),
                       ],
                     ),

@@ -30,4 +30,50 @@ void main() {
   test('optionsWithCurrentは一覧にある値ならそのまま返す', () {
     expect(optionsWithCurrent(seasonOptions, '夏'), seasonOptions);
   });
+
+  group('サイズ', () {
+    final base = Clothing(
+      id: 1,
+      imagePath: 'u/original/a.jpg',
+      category: 'パンツ',
+      color: '黒',
+      season: '春秋',
+      size: 'M',
+    );
+
+    test('copyWithでsizeを省略すると元の値を引き継ぐ', () {
+      expect(base.copyWith(color: '白').size, 'M');
+    });
+
+    test('copyWithでsizeにnullを渡すと未設定に戻る', () {
+      expect(base.copyWith(size: null).size, isNull);
+    });
+
+    test('copyWithでsizeを変更できる', () {
+      expect(base.copyWith(size: 'W30').size, 'W30');
+    });
+
+    test('fromMapはsize列がない/nullの古い行でも読める', () {
+      final c = Clothing.fromMap({
+        'id': 2,
+        'image_path': 'x',
+        'category': 'Tシャツ',
+        'color': '白',
+        'season': '夏',
+        'created_at': '2026-01-01T00:00:00Z',
+      });
+      expect(c.size, isNull);
+    });
+
+    test('toMapはsizeがあるときだけ含める', () {
+      expect(base.toMap()['size'], 'M');
+      expect(base.copyWith(size: null).toMap().containsKey('size'), isFalse);
+    });
+
+    test('normalizeSizeは空白を除き、空ならnull', () {
+      expect(normalizeSize('  L '), 'L');
+      expect(normalizeSize('   '), isNull);
+      expect(normalizeSize(''), isNull);
+    });
+  });
 }

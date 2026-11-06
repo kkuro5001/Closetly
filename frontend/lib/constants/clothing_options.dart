@@ -21,6 +21,24 @@ const seasonOptions = [
   "オールシーズン",
 ];
 
+// サイズ入力欄の下に出す「よく使うサイズ」の候補。
+// サイズは服の種類で表記が違う(靴の25.5、パンツのW30など)ため自由入力で、これは1タップ入力用の補助
+const sizeSuggestions = [
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "フリー",
+];
+
+// サイズ入力欄の値を保存用に正規化する(前後の空白を除き、空なら未設定 = null)
+String? normalizeSize(String input) {
+  final trimmed = input.trim();
+  return trimmed.isEmpty ? null : trimmed;
+}
+
 // 選択肢に現在の値が含まれていない場合(古いデータなど)、
 // 編集時に値が勝手に変わらないよう先頭に追加した一覧を返す
 List<String> optionsWithCurrent(List<String> options, String current) {

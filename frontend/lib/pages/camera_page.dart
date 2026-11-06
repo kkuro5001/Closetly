@@ -9,6 +9,7 @@ import '../services/clothing_service.dart';
 import '../services/color_service.dart';
 import '../models/clothing.dart';
 import '../constants/clothing_options.dart';
+import '../widgets/size_field.dart';
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
@@ -39,6 +40,7 @@ class _CameraPageState extends State<CameraPage> {
 
   // 入力用コントローラー
   final colorController = TextEditingController();
+  final sizeController = TextEditingController();
 
   // 選択されたカテゴリ・季節
   String selectedCategory = categoryOptions.first;
@@ -163,6 +165,7 @@ class _CameraPageState extends State<CameraPage> {
         category: selectedCategory,
         color: colorController.text,
         season: selectedSeason,
+        size: normalizeSize(sizeController.text),
       );
 
       debugPrint("保存データ:");
@@ -170,6 +173,7 @@ class _CameraPageState extends State<CameraPage> {
       debugPrint("category: $selectedCategory");
       debugPrint("color: ${colorController.text}");
       debugPrint("season: $selectedSeason");
+      debugPrint("size: ${sizeController.text}");
 
       await clothingService.insertClothing(
         clothing,
@@ -178,12 +182,13 @@ class _CameraPageState extends State<CameraPage> {
       debugPrint("保存完了");
 
       if (mounted) {
-        // 同じ写真を二重登録しないよう、写真と色はクリアして次の1着を登録できる状態に戻す。
-        // カテゴリ・季節は続けて似た服を登録しやすいよう残す
+        // 同じ写真を二重登録しないよう、写真と色・サイズはクリアして次の1着を登録できる状態に戻す。
+        // カテゴリ・季節は続けて似た服を登録しやすいよう残す(サイズは服ごとに違うことが多いのでクリア)
         setState(() {
           image = null;
           pickedFileName = null;
           colorController.clear();
+          sizeController.clear();
           // 解析中の結果が後から入らないよう番号を進める
           _colorRequestId++;
           isAnalyzingColor = false;
@@ -226,6 +231,7 @@ class _CameraPageState extends State<CameraPage> {
   @override
   void dispose() {
     colorController.dispose();
+    sizeController.dispose();
     super.dispose();
   }
 
@@ -330,6 +336,11 @@ class _CameraPageState extends State<CameraPage> {
                           : null,
                     ),
                   ),
+
+                  const SizedBox(height: 20),
+
+                  _sectionTitle("サイズ(任意)"),
+                  SizeField(controller: sizeController),
                 ],
               ],
             ),

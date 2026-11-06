@@ -1,4 +1,4 @@
--- 服のメタデータ（カテゴリ・色・季節・画像パス）をSupabaseで管理するテーブル
+-- 服のメタデータ（カテゴリ・色・季節・サイズ・画像パス）をSupabaseで管理するテーブル
 create table public.clothes (
   id bigint generated always as identity primary key,
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -6,6 +6,7 @@ create table public.clothes (
   category text not null,
   color text not null,
   season text not null,
+  size text, -- 任意(未設定はnull)。既存DBには migrations/add_clothes_size.sql で追加
   created_at timestamptz not null default now()
 );
 

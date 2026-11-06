@@ -7,6 +7,7 @@ import '../models/wear_log.dart';
 import '../services/storage_service.dart';
 import '../services/wear_log_service.dart';
 import '../utils/wear_stats.dart';
+import '../widgets/size_field.dart';
 
 class ClothingDetailPage extends StatefulWidget {
 
@@ -219,6 +220,7 @@ class _ClothingDetailPageState extends State<ClothingDetailPage> {
         category: result.category,
         color: result.color,
         season: result.season,
+        size: result.size,
       );
 
       if (!mounted) return;
@@ -418,6 +420,15 @@ class _ClothingDetailPageState extends State<ClothingDetailPage> {
               ),
             ),
 
+            const SizedBox(height: 10),
+
+            Text(
+              "サイズ: ${clothing.size ?? "未設定"}",
+              style: const TextStyle(
+                fontSize: 20,
+              ),
+            ),
+
             if (clothing.createdAt != null) ...[
               const SizedBox(height: 10),
 
@@ -439,7 +450,7 @@ class _ClothingDetailPageState extends State<ClothingDetailPage> {
   }
 }
 
-// カテゴリ・色・季節の編集ダイアログ。保存で編集後のClothingを返す
+// カテゴリ・色・季節・サイズの編集ダイアログ。保存で編集後のClothingを返す
 class _EditDialog extends StatefulWidget {
 
   final Clothing clothing;
@@ -456,12 +467,15 @@ class _EditDialogState extends State<_EditDialog> {
   late String season = widget.clothing.season;
   late final TextEditingController colorController =
       TextEditingController(text: widget.clothing.color);
+  late final TextEditingController sizeController =
+      TextEditingController(text: widget.clothing.size ?? "");
 
   String? colorError;
 
   @override
   void dispose() {
     colorController.dispose();
+    sizeController.dispose();
     super.dispose();
   }
 
@@ -482,6 +496,7 @@ class _EditDialogState extends State<_EditDialog> {
         category: category,
         color: color,
         season: season,
+        size: normalizeSize(sizeController.text),
       ),
     );
   }
@@ -524,6 +539,13 @@ class _EditDialogState extends State<_EditDialog> {
                   .map((v) => DropdownMenuItem(value: v, child: Text(v)))
                   .toList(),
               onChanged: (v) => setState(() => season = v ?? season),
+            ),
+
+            const SizedBox(height: 12),
+
+            SizeField(
+              controller: sizeController,
+              labelText: "サイズ(任意)",
             ),
           ],
         ),

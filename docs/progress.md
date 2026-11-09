@@ -552,3 +552,15 @@ Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開�
 - CLAUDE.md に「Claude の署名をコミットに付けない」節(Commits)を追加した。
 ### 過去分の削除
 - 11-03 の書き換えは GitHub に一度も反映されていなかった(GitHub 上の全ブランチに署名が残っていた)。今回は GitHub の内容を基準にする: GitHub をミラーで clone し、そのミラー上で `git filter-branch --msg-filter` を全ブランチにかける。
+- バックアップ: `C:\personal_development\Closetly-backup-20261109-github.git`(書き換え前の GitHub のミラー)。作業用は `Closetly-rewrite-20261109.git`。
+- 1回目の書き換えで、署名のないコミット29件(GitHub の Web 画面で作ったマージコミット。メッセージ末尾に改行がない)にも改行が足されてハッシュが変わってしまった。awk が行単位で出力し直していたため。
+  - 署名がないメッセージは1バイトも変えずに返す Python のフィルタに替え、`refs/original` から元に戻してやり直した。
+- 確認: 170コミット中、ハッシュが変わらない31件 / 署名行だけ消えた49件 / 残りは親が変わったためハッシュだけ変わった。全17ブランチでツリー(ファイル内容)・作者・日時が一致、署名は0件。`git push --dry-run` も通った。
+- force push はユーザーが手動で行う(`Closetly-rewrite-20261109-push.sh`。`--force-with-lease` で clone 時点のハッシュを指定し、`--atomic` で全ブランチを一度に更新)。
+- `refs/pull/*`(PR が指す古いコミット)は GitHub 側で書き換えられないので残る。contributors の数え方には影響しない想定(未確認)。
+- **結果**: ユーザーがスクリプトで force push し、17ブランチとも更新された(`master`: `75d1600` → `bc56210`)。fetch 後、GitHub の全ブランチで署名0件、`master` のファイル内容は書き換え前と同一。
+- **ローカルの後始末**: ローカルのブランチ12本は 11-03 に書き換えた版(GitHub とはハッシュだけ違い、コミット数・件名・日時・ファイル内容は一致)だったので、`git branch -f` で GitHub の版に合わせた。`master` も同様。
+  - 11-03 版の `master` は `backup/master-rewritten-20261103` に残してある(不要なら削除可)。
+  - 触っていないもの: GitHub に無いローカル専用ブランチ(`feature/outfits-ui` / `feature/outfit-ai-suggest` / `feature/wear-log-ui`(worktree で使用中)、`fix/design`、`worktree-agent-*`)と、別の worktree で使用中の `testdata/clothes-images`。どれも古い履歴の上にあるので、今後使うなら新しい `master` に rebase する。
+  - このブランチ(`chore/strip-claude-coauthor`)は `git rebase --onto origin/master 75d1600` で新しい `master` の上に載せ直した。
+- master への force push で CI/CD も走る(中身は同じなのでデプロイ結果は変わらない想定)。

@@ -564,3 +564,9 @@ Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開�
   - 触っていないもの: GitHub に無いローカル専用ブランチ(`feature/outfits-ui` / `feature/outfit-ai-suggest` / `feature/wear-log-ui`(worktree で使用中)、`fix/design`、`worktree-agent-*`)と、別の worktree で使用中の `testdata/clothes-images`。どれも古い履歴の上にあるので、今後使うなら新しい `master` に rebase する。
   - このブランチ(`chore/strip-claude-coauthor`)は `git rebase --onto origin/master 75d1600` で新しい `master` の上に載せ直した。
 - master への force push で CI/CD も走る(中身は同じなのでデプロイ結果は変わらない想定)。
+- **11-09 追記(別の clone での後始末)**: `C:\Personal_production\Closetly` の `master` が書き換え前の `75d1600`(署名49件入り)のままで、`origin/master` と ahead 138 / behind 143 に分岐していた。このため `.githooks/` がそもそも存在せず、`git config core.hooksPath .githooks` だけでは何も効かない状態だった。
+  - `75d1600` と書き換え後の `bc56210` はファイル内容・コミット件名とも一致していたので、`backup/master-old-20261109` に退避してから `git reset --hard origin/master` で GitHub に合わせ、`git config core.hooksPath .githooks` を設定した。署名入りのテストメッセージでフックが行を削除することを確認。
+  - この clone のローカルブランチ(`docs/disk-cors-progress` など9本)はまだ古い履歴で署名が残っている。push すると署名付きコミットが GitHub に戻るので、使わないなら削除、使うなら origin の版に合わせる。
+  - Git Bash で `git show origin/xxx:path` を打つと MSYS のパス変換で `origin\xxx;path` に化けて失敗した。`MSYS_NO_PATHCONV=1` で回避。
+- **11-09 追記(PC側の設定)**: `~/.claude/settings.json` に `"attribution": {"commit": "", "pr": ""}` が入っていなかった(Claude Code がコミットへの署名付与を指示していた)ので追加し、Claude Code 自体が署名を付けないようにした。フックと CLAUDE.md の方針は保険として残す。
+  - 古い履歴のローカルブランチ8本と `backup/master-old-20261109` を削除。削除前に、6本は origin の同名ブランチとツリーが一致、残り2本(`docs/disk-cors-progress` / `fix/cd`)は全コミットが件名・日時で `origin/master` に含まれることを確認した。署名なしの `feature/closet_page` / `feature/clothing_detail` は残した。

@@ -480,6 +480,24 @@ Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開�
   インストール直後の既存ターミナルでは PATH が反映されないため、フルパス(`C:\Program Files\GitHub CLI\gh.exe`)で実行した。
 - ローカル用の `.env` は作っていない(スキップ)。ローカルで AI 提案を試すには `.env` に `GEMINI_API_KEY` が必要。
 
+## GitHub の contributors から Claude を外す (2026-11-03)
+### 理由
+コミットメッセージ末尾の `Co-Authored-By: Claude ... <noreply@anthropic.com>` を GitHub が拾い、Claude が contributors に表示されていた(全156コミット中42件、`origin/master` 上で32件)。ユーザーの希望で外す。
+
+### やったこと
+- **今後付かないようにする**: `~/.claude/settings.json` に `"attribution": {"commit": "", "pr": ""}` を追加(Claude Code がコミット/PR に署名を付けなくなる)。
+- **過去分の削除**: `git filter-repo` が入っていなかったので標準の `git filter-branch --msg-filter` で、全ローカルブランチのコミットメッセージから `Co-Authored-By:` の Claude 行(と末尾の空行)を削除。リモートにしかなかったブランチは先にローカルブランチを作ってから対象に含めた。
+- **確認**: 書き換え後の署名は0件、全ブランチで元のコミットとツリー(ファイル内容)が完全一致、作者・日時も変化なし、worktree も変更なし。
+- **バックアップ**: 書き換え前に `C:\personal_development\Closetly-backup-20261103.bundle`(ローカル全ブランチ)と `C:\personal_development\Closetly-backup-20261103-remote.git`(GitHub のミラー)を作成。問題がなければ削除してよい。
+
+### 作業中に起きた問題
+- force push は Claude Code の自動モードの安全チェック(Git Destructive)で拒否されたため、ユーザーが手動で実行した。リモートに存在するブランチだけを `--force-with-lease` で push し、ローカル専用ブランチ(`worktree-agent-*` など)は公開していない。
+
+### 気をつける点
+- 全コミットのハッシュが変わった。他の場所のクローンは取り直す(`git fetch` → `git reset --hard origin/<branch>` か再クローン)。
+- マージ済み PR のコミット一覧には古いコミットが残ることがある。PR 本文の `🤖 Generated with Claude Code` はコミットではないので残っている(必要なら手で編集)。
+- contributors 表示の反映には時間がかかることがある。
+
 ## master を pull (2026-11-04)
 - `609319d` → `6dcb692`(PR #24 / #25: 着用記録・コーデ・AI 提案、ディスク・CORS の経緯)。
 - **問題**: 前回(2026-10-30)の docs の修正(`progress.md` / `color-autofill.md`)が未コミットのまま残っており、pull が止まった。
@@ -516,3 +534,33 @@ Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開�
 - `clothes` に任意の `size text` を追加し、登録画面・編集ダイアログ・詳細・クローゼットのカードに反映した。詳細は `clothing-size.md`。
 - 本番DBで `supabase/migrations/add_clothes_size.sql` を実行済み(2026-11-06、ユーザーが SQL Editor で実行)。フロントのデプロイより先に実行する必要があった(実行前だと編集の保存が失敗する。サイズ空欄の登録は動く)。
 - **問題**: 大きな問題はなし。`flutter analyze` の `main.dart` の2件(未使用 import、`anonKey` 非推奨)は以前からあるもので、今回は触っていない。
+
+## master を pull したら履歴が分岐していた (2026-11-09)
+- ローカルの `master` は 2026-11-03 に署名を消した書き換え後の履歴(署名0件)だったが、`origin/master` は書き換え前の古い履歴のまま PR #26〜#29 が積まれていた(署名49件)。11-03 の force push が `master` に反映されなかったか、書き換え前のクローンから古い履歴ごと push されたと思われる。
+- そのまま `git pull`(マージ)すると同じ内容のコミットが約130件二重になり、署名付きの方も残るため、マージはしなかった。
+- ユーザーの判断で、いったん GitHub 側に合わせた: `progress.md` の未コミット変更を stash → `git reset --hard origin/master` → `git stash pop`。
+  - 書き換え後のローカル `master` はブランチ `backup/master-rewritten-20261103` として残した(11-03 のバックアップ bundle / ミラーも残っている)。
+- **問題**: `stash pop` で `progress.md` の末尾が衝突した(双方が末尾に節を追加)。両方残し、日付順(11-03 の節を 11-04 の節の前)に並べた。
+- **未対応**: Claude はまだ contributors に残っている。消すなら `origin/master` を基準にもう一度書き換えて force push する必要がある(force push はユーザーが手動で行う)。その前に他のクローンを取り直さないと同じことが起きる。
+
+## contributors から Claude を外す(2回目) (2026-11-09)
+### 今後付かないようにする
+- 11-03 に `~/.claude/settings.json` の `attribution` を空にしたが、11-04〜11-06 のコミット6件にも署名が付いていた(設定だけでは防げなかった。原因は未確認)。
+- そこで `.githooks/commit-msg` を追加: `Co-Authored-By: ... <noreply@anthropic.com>` 行と末尾の空行をコミット時に消す(他の共同作者の行は残す)。`git config core.hooksPath .githooks` で有効化(このクローンでは設定済み、worktree も共有)。
+  - フックはクローンしただけでは有効にならないので、他の環境では各自で `core.hooksPath` を設定する必要がある。
+  - Windows で CRLF になると `#!/bin/sh` が動かなくなるため、`.gitattributes` で `.githooks/*` を `eol=lf` に固定した。
+- CLAUDE.md に「Claude の署名をコミットに付けない」節(Commits)を追加した。
+### 過去分の削除
+- 11-03 の書き換えは GitHub に一度も反映されていなかった(GitHub 上の全ブランチに署名が残っていた)。今回は GitHub の内容を基準にする: GitHub をミラーで clone し、そのミラー上で `git filter-branch --msg-filter` を全ブランチにかける。
+- バックアップ: `C:\personal_development\Closetly-backup-20261109-github.git`(書き換え前の GitHub のミラー)。作業用は `Closetly-rewrite-20261109.git`。
+- 1回目の書き換えで、署名のないコミット29件(GitHub の Web 画面で作ったマージコミット。メッセージ末尾に改行がない)にも改行が足されてハッシュが変わってしまった。awk が行単位で出力し直していたため。
+  - 署名がないメッセージは1バイトも変えずに返す Python のフィルタに替え、`refs/original` から元に戻してやり直した。
+- 確認: 170コミット中、ハッシュが変わらない31件 / 署名行だけ消えた49件 / 残りは親が変わったためハッシュだけ変わった。全17ブランチでツリー(ファイル内容)・作者・日時が一致、署名は0件。`git push --dry-run` も通った。
+- force push はユーザーが手動で行う(`Closetly-rewrite-20261109-push.sh`。`--force-with-lease` で clone 時点のハッシュを指定し、`--atomic` で全ブランチを一度に更新)。
+- `refs/pull/*`(PR が指す古いコミット)は GitHub 側で書き換えられないので残る。contributors の数え方には影響しない想定(未確認)。
+- **結果**: ユーザーがスクリプトで force push し、17ブランチとも更新された(`master`: `75d1600` → `bc56210`)。fetch 後、GitHub の全ブランチで署名0件、`master` のファイル内容は書き換え前と同一。
+- **ローカルの後始末**: ローカルのブランチ12本は 11-03 に書き換えた版(GitHub とはハッシュだけ違い、コミット数・件名・日時・ファイル内容は一致)だったので、`git branch -f` で GitHub の版に合わせた。`master` も同様。
+  - 11-03 版の `master` は `backup/master-rewritten-20261103` に残してある(不要なら削除可)。
+  - 触っていないもの: GitHub に無いローカル専用ブランチ(`feature/outfits-ui` / `feature/outfit-ai-suggest` / `feature/wear-log-ui`(worktree で使用中)、`fix/design`、`worktree-agent-*`)と、別の worktree で使用中の `testdata/clothes-images`。どれも古い履歴の上にあるので、今後使うなら新しい `master` に rebase する。
+  - このブランチ(`chore/strip-claude-coauthor`)は `git rebase --onto origin/master 75d1600` で新しい `master` の上に載せ直した。
+- master への force push で CI/CD も走る(中身は同じなのでデプロイ結果は変わらない想定)。

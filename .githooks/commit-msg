@@ -1,0 +1,14 @@
+#!/bin/sh
+# Claude Code などが付ける "Co-Authored-By: Claude ... <noreply@anthropic.com>" 行を
+# コミットメッセージから削除する(GitHub の contributors に Claude が載るのを防ぐ)。
+# 有効化: git config core.hooksPath .githooks
+msg="$1"
+tmp="$msg.tmp.$$"
+awk '
+  tolower($0) ~ /^co-authored-by:.*noreply@anthropic\.com/ { next }
+  { lines[++n] = $0 }
+  END {
+    while (n > 0 && lines[n] ~ /^[[:space:]]*$/) n--
+    for (i = 1; i <= n; i++) print lines[i]
+  }
+' "$msg" > "$tmp" && mv "$tmp" "$msg"

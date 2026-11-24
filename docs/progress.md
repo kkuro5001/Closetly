@@ -570,3 +570,9 @@ Opus を司令塔にして、Sonnet を機能ごとに分けて worktree で開�
   - Git Bash で `git show origin/xxx:path` を打つと MSYS のパス変換で `origin\xxx;path` に化けて失敗した。`MSYS_NO_PATHCONV=1` で回避。
 - **11-09 追記(PC側の設定)**: `~/.claude/settings.json` に `"attribution": {"commit": "", "pr": ""}` が入っていなかった(Claude Code がコミットへの署名付与を指示していた)ので追加し、Claude Code 自体が署名を付けないようにした。フックと CLAUDE.md の方針は保険として残す。
   - 古い履歴のローカルブランチ8本と `backup/master-old-20261109` を削除。削除前に、6本は origin の同名ブランチとツリーが一致、残り2本(`docs/disk-cors-progress` / `fix/cd`)は全コミットが件名・日時で `origin/master` に含まれることを確認した。署名なしの `feature/closet_page` / `feature/clothing_detail` は残した。
+
+## プロジェクトフォルダを Google Drive にアップロードできない (2026-11-24)
+- 症状: ブラウザでフォルダごとアップロードすると「アップロードに失敗しました。フォルダの内容にアクセスできません」。
+- 調査: フォルダ全体が 1.1GB(うち `frontend/build` 980MB、`frontend/.dart_tool` 94MB)。`frontend/{windows,linux}/flutter/ephemeral/.plugin_symlinks/` にシンボリックリンクが13個(リンク先はプロジェクト外の Pub Cache。リンク先自体は存在する)、`frontend/build` 内に260文字以上のパスが13個あった。PowerShell では全部読めたので、ブラウザがどちらで止まったかは確定できていないが、どちらもブラウザのフォルダアップロードが扱えない典型。
+- 対処: `frontend` で `flutter clean`(`build/`・`.dart_tool/`・`ephemeral/` など、ビルド時に作り直されるものだけ消える)。結果 17MB / 1220ファイル、シンボリックリンク0、260文字以上のパス0。ビルドや実行の前に `flutter pub get` が必要。なお `flutter pub get` を実行すると `ephemeral/` のシンボリックリンクが作り直され、`generated_plugin*` 系5ファイルの改行コードが LF に変わる(中身は同じなのでコミットしない)。
+- 追記: 提出前に「pages などがエラーだらけ」と言われた。原因は2つ。(1) `flutter clean` で `.dart_tool/` が消えてパッケージが解決できなくなっていた → `flutter pub get` で解消。(2) `frontend/lib/utils/closet_filter.dart` の `ClosetSort.newest` の行の後ろに、コードではない日本語の文章(16行)が未コミットで貼り付けられていて Dart の構文エラーになっていた → いったん各行の先頭に `// ` を付けてコメントアウトしたが、リポジトリが公開なので個人的な文章を履歴に残さないよう、merge 前に文章ごと削除して元のコードに戻した(文章はローカルに退避)。`flutter analyze` は error 0(未使用 import の warning 1、`anonKey` 非推奨の info 1 は以前からあるもの)、`flutter test` は全件成功。
